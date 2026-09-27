@@ -1,0 +1,9 @@
+[submodule "apps/bourse-tracker"]
+	path = apps/bourse-tracker
+	url = https://github.com/aust-1/bourse-tracker.git
+[submodule "apps/portfolio"]
+	path = apps/portfolio
+	url = https://github.com/aust-1/portfolio.git
+[submodule "apps/documentation"]
+	path = apps/documentation
+	url = https://github.com/aust-1/lectures-notes.git
