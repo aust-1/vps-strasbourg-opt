@@ -1,0 +1,4 @@
+uptime.eliott-roussille.fr {
+	encode zstd gzip
+	reverse_proxy uptime-kuma:3001
+}

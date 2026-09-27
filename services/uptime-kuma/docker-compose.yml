@@ -1,0 +1,31 @@
+# Supervision (image tierce, sans dépôt propre : versionnée directement dans /opt).
+# Le nom de projet reste « uptime-kuma » pour retrouver le volume existant (uptime-kuma_data).
+name: uptime-kuma
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
+services:
+  uptime-kuma:
+    image: louislam/uptime-kuma:2
+    container_name: uptime-kuma
+    restart: unless-stopped
+    # Pas de no-new-privileges ici : les sondes ping reposent sur des capacités de fichier.
+    volumes:
+      - data:/app/data
+    networks:
+      proxy:
+        aliases:
+          - uptime-kuma # cible du reverse_proxy dans le Caddyfile ; unique sur le réseau
+    logging: *logging
+
+networks:
+  proxy:
+    external: true
+    name: ${PROXY_NETWORK:-proxy}
+
+volumes:
+  data:
