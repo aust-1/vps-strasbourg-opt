@@ -25,7 +25,13 @@ Codes de sortie : 0 succès ; 1 erreur ; 2 usage ; 3 prérequis ; 4 arbre sale /
 EOF
 }
 
-# Toute la logique est dans une fonction : bash la lit en entier avant de l'exécuter, donc
+# submodule_head <chemin> : commit extrait du sous-module, « none » s'il n'est pas initialisé.
+# (Sans le test de .git, « git -C » sur un dossier vide interrogerait le dépôt parent.)
+submodule_head() {
+  if [[ -e "$1/.git" ]]; then git -C "$1" rev-parse HEAD 2>/dev/null || echo none; else echo none; fi
+}
+
+$1 : bash la lit en entier avant de l'exécuter, donc
 # le pull peut réécrire ce fichier sans corrompre l'exécution en cours.
 main() {
   local deploy=0 routes=1 force=0
@@ -83,7 +89,7 @@ main() {
   local -A before=()
   local p
   for p in ${paths[@]+"${paths[@]}"}; do
-    before[$p]="$(git -C "$p" rev-parse HEAD 2>/dev/null || echo none)"
+    before[$p]="$(submodule_head "$p")"
   done
 
   local head_before
@@ -105,7 +111,7 @@ main() {
   local -a changed=()
   local after old
   for p in ${paths[@]+"${paths[@]}"}; do
-    after="$(git -C "$p" rev-parse HEAD 2>/dev/null || echo none)"
+    after="$(submodule_head "$p")"
     old="${before[$p]:-none}"
     [[ "$after" == "$old" ]] && continue
     changed+=("$p")
