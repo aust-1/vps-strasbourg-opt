@@ -1,0 +1,50 @@
+# Reverse proxy unique du VPS : seul service à publier les ports 80/443.
+# Le routage de chaque app vit dans SON Caddyfile ; scripts/routes-sync.sh les assemble
+# dans ./sites/ (copies, jamais de liens symboliques : ils cassent dans un montage).
+name: proxy
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./sites:/etc/caddy/sites:ro
+      - caddy_data:/data # certificats Let's Encrypt : à sauvegarder
+      - caddy_config:/config
+    networks:
+      - proxy
+    healthcheck:
+      # API d'administration de Caddy, accessible uniquement depuis le conteneur
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2019/config/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging: *logging
+
+networks:
+  proxy:
+    external: true
+    name: ${PROXY_NETWORK:-proxy}
+
+volumes:
+  caddy_data:
+  caddy_config:

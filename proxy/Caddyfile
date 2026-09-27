@@ -1,0 +1,8 @@
+# Configuration globale du proxy. Ne contient AUCUN site : chaque app/service déclare
+# le sien dans son propre Caddyfile, assemblé ici par scripts/routes-sync.sh.
+{
+	# Adresse utilisée par Let's Encrypt (expiration, problèmes de certificat)
+	email eliottroussille@gmail.com
+}
+
+import sites/*.caddy
