@@ -1,4 +1,5 @@
 # shellcheck shell=bash
+# shellcheck disable=SC2034  # variables consommées par les scripts qui sourcent cette bibliothèque
 # Bibliothèque commune des scripts de /opt. À SOURCER, jamais à exécuter.
 #
 # Codes de sortie communs à tous les scripts :
