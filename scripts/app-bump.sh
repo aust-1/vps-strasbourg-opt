@@ -101,7 +101,13 @@ run git -C "$REL" checkout --quiet "$resolved"
 
 run git add -- "$REL"
 if [[ "$DO_COMMIT" == "1" ]]; then
-  run git commit -q -m "chore(apps): $NAME suit $resolved (déploiement)"
+  # git commit sans pathspec engloberait tout ce qui était déjà indexé par ailleurs :
+  # on refuse plutôt que de committer autre chose que ce déplacement.
+  if [[ "$DRY_RUN" == "0" ]]; then
+    unexpected="$(git diff --cached --name-only | grep -vF -- "$REL" || true)"
+    [[ -z "$unexpected" ]] || die "l'index contient d'autres changements (${unexpected//$'\n'/, }) : commit non créé, --no-commit pour les laisser en attente" 4
+  fi
+  run git commit -q -m "chore(apps): $NAME suit $resolved (déploiement)" -- "$REL"
   log "commit créé (pas de push)"
 else
   log "déplacement laissé dans l'index (git commit à faire)"
