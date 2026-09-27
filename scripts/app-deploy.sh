@@ -7,7 +7,7 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 
 usage() {
-  cat <<'EOF'
+  cat << 'EOF'
 Usage : scripts/app-deploy.sh [--no-pull] [--no-build] [--timeout SECONDES] [--dry-run] <nom>
         scripts/app-deploy.sh [options] --all
 
@@ -146,7 +146,7 @@ deploy_one() {
   # Pas de « docker compose config | grep -q » : grep quitte tôt, SIGPIPE + pipefail = faux négatif.
   local rendered
   rendered="$(cd "$dir" && docker compose config)"
-  if [[ "$BUILD" == "1" ]] && grep -qE '^\s+build:' <<<"$rendered"; then
+  if [[ "$BUILD" == "1" ]] && grep -qE '^\s+build:' <<< "$rendered"; then
     (cd "$dir" && run docker compose build --pull)
   fi
   (cd "$dir" && run docker compose up -d --remove-orphans)
@@ -190,5 +190,5 @@ fi
 if [[ "$DRY_RUN" == "1" ]]; then
   run docker image prune -f
 else
-  docker image prune -f >/dev/null
+  docker image prune -f > /dev/null
 fi

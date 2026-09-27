@@ -7,7 +7,7 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 
 usage() {
-  cat <<'EOF'
+  cat << 'EOF'
 Usage : scripts/update.sh [--deploy] [--no-routes] [--force] [--dry-run] [-h]
 
 Enchaîne : contrôle de l'arbre git -> git pull --ff-only -> git submodule sync/update
@@ -28,7 +28,7 @@ EOF
 # submodule_head <chemin> : commit extrait du sous-module, « none » s'il n'est pas initialisé.
 # (Sans le test de .git, « git -C » sur un dossier vide interrogerait le dépôt parent.)
 submodule_head() {
-  if [[ -e "$1/.git" ]]; then git -C "$1" rev-parse HEAD 2>/dev/null || echo none; else echo none; fi
+  if [[ -e "$1/.git" ]]; then git -C "$1" rev-parse HEAD 2> /dev/null || echo none; else echo none; fi
 }
 
 # Toute la logique est dans une fonction : bash la lit en entier avant de l'exécuter, donc
@@ -119,7 +119,7 @@ main() {
       log "$p : nouveau sous-module (${after:0:7})"
     else
       log "$p : ${old:0:7} -> ${after:0:7}"
-      git -C "$p" log --oneline "$old..$after" 2>/dev/null | sed 's/^/    /' || true
+      git -C "$p" log --oneline "$old..$after" 2> /dev/null | sed 's/^/    /' || true
     fi
   done
 

@@ -13,7 +13,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/lib/perms.sh"
 
 usage() {
-  cat <<'EOF'
+  cat << 'EOF'
 Usage : scripts/backup.sh [--dest DOSSIER] [--keep-days N] [--stop] [--dry-run] [-h]
 
 Contenu de l'archive : un tar.gz par volume Docker des projets compose (proxy, services, apps),
@@ -76,7 +76,7 @@ declare -a STOPPED=()
 restart_stopped() {
   local dir
   for dir in ${STOPPED[@]+"${STOPPED[@]}"}; do
-    (cd "$dir" && docker compose start >/dev/null) || warn "redémarrage impossible : $dir (docker compose start)"
+    (cd "$dir" && docker compose start > /dev/null) || warn "redémarrage impossible : $dir (docker compose start)"
   done
   STOPPED=()
 }
@@ -120,7 +120,7 @@ if [[ "$STOP" == "1" ]]; then
   for dir in "${UNIT_DIRS[@]}"; do
     [[ "$dir" != "$PROXY_DIR" ]] || continue
     if [[ -n "$(cd "$dir" && docker compose ps -q --status running)" ]]; then
-      (cd "$dir" && docker compose stop >/dev/null)
+      (cd "$dir" && docker compose stop > /dev/null)
       STOPPED+=("$dir")
       log "arrêté pendant la sauvegarde : $(basename "$dir")"
     fi
@@ -145,14 +145,14 @@ done
   echo "date: $(date -Is)"
   echo "hôte: $(hostname)"
   echo "opt: $(git -C "$OPT_ROOT" rev-parse HEAD)"
-  git -C "$OPT_ROOT" submodule status 2>/dev/null | sed 's/^/sous-module: /' || true
+  git -C "$OPT_ROOT" submodule status 2> /dev/null | sed 's/^/sous-module: /' || true
   for v in ${VOLUMES[@]+"${VOLUMES[@]}"}; do echo "volume: $v"; done
-} >"$WORK/manifest.txt"
+} > "$WORK/manifest.txt"
 
 tar czf "$ARCHIVE.tmp" -C "$WORK" .
-tar tzf "$ARCHIVE.tmp" >/dev/null || die "archive illisible, sauvegarde abandonnée"
+tar tzf "$ARCHIVE.tmp" > /dev/null || die "archive illisible, sauvegarde abandonnée"
 mv "$ARCHIVE.tmp" "$ARCHIVE"
-(cd "$DEST" && sha256sum "$(basename "$ARCHIVE")" >"$(basename "$ARCHIVE").sha256")
+(cd "$DEST" && sha256sum "$(basename "$ARCHIVE")" > "$(basename "$ARCHIVE").sha256")
 
 if [[ "$KEEP_DAYS" -gt 0 ]]; then
   find "$DEST" -maxdepth 1 -name 'opt-*.tar.gz*' -mtime "+$KEEP_DAYS" -delete

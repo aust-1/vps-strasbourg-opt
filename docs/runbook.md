@@ -70,34 +70,40 @@ nom de projet, cible du `reverse_proxy`), validité de la configuration Caddy as
 
 ## Pannes fréquentes
 
-**Un domaine répond 502 / ne répond plus**
+### Un domaine répond 502 / ne répond plus
+
 1. `scripts/status.sh` — la route est-elle publiée (`ok`) ou `ABSENTE`/`OBSOLÈTE` ?
 2. `docker compose -f proxy/docker-compose.yml logs caddy --tail=50`
 3. Le conteneur cible est-il sain ? `cd apps/<nom> && docker compose ps`
 4. `scripts/routes-sync.sh` (republie/recharge)
 
-**Certificat expiré ou jamais émis**
+### Certificat expiré ou jamais émis
+
 - Le port 80 (défi HTTP) et 443 doivent être joignables depuis Internet : `ufw status`,
   et le DNS du domaine doit déjà pointer vers le VPS.
 - `docker compose -f proxy/docker-compose.yml logs caddy | grep -i acme`
 
-**`scripts/*.sh` refuse de s'exécuter (Permission denied)**
+### `scripts/*.sh` refuse de s'exécuter (Permission denied)
+
 ```bash
 scripts/fix-perms.sh
 ```
 
-**Le réseau `proxy` est absent**
+### Le réseau `proxy` est absent
+
 ```bash
 scripts/network-create.sh
 ```
 
-**Un sous-module est en HEAD détachée ou pointe sur un commit inattendu**
+### Un sous-module est en HEAD détachée ou pointe sur un commit inattendu
+
 ```bash
 git submodule status                  # repère l'app concernée
 scripts/app-bump.sh --to <réf> <nom>   # réaligne explicitement (voir docs/architecture.md)
 ```
 
-**Espace disque bas**
+### Espace disque bas
+
 ```bash
 docker system df
 docker image prune -f

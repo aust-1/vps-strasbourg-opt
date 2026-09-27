@@ -9,7 +9,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/lib/perms.sh"
 
 usage() {
-  cat <<'EOF'
+  cat << 'EOF'
 Usage : scripts/fix-perms.sh [--owner UTILISATEUR[:GROUPE]] [--dry-run] [-h]
 
 Applique les permissions (chmod) définies dans scripts/lib/perms.sh :

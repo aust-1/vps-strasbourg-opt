@@ -12,7 +12,7 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 
 usage() {
-  cat <<'EOF'
+  cat << 'EOF'
 Usage : scripts/app-bump.sh [--to RÉFÉRENCE] [--no-commit] [--dry-run] <nom>
 
 Sans --to : récupère (fetch) et avance jusqu'au dernier commit de la branche suivie par le
@@ -87,7 +87,7 @@ else
   target="origin/$branch"
 fi
 
-resolved="$(git -C "$REL" rev-parse --short "$target" 2>/dev/null)" \
+resolved="$(git -C "$REL" rev-parse --short "$target" 2> /dev/null)" \
   || die "référence introuvable dans $REL : $target"
 
 if [[ "$resolved" == "$before" ]]; then
@@ -96,7 +96,7 @@ if [[ "$resolved" == "$before" ]]; then
 fi
 
 log "$NAME : $before -> $resolved ($target)"
-git -C "$REL" log --oneline "$before..$resolved" 2>/dev/null | sed 's/^/    /' || true
+git -C "$REL" log --oneline "$before..$resolved" 2> /dev/null | sed 's/^/    /' || true
 run git -C "$REL" checkout --quiet "$resolved"
 
 run git add -- "$REL"

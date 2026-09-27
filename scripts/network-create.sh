@@ -7,7 +7,7 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 
 usage() {
-  cat <<'EOF'
+  cat << 'EOF'
 Usage : scripts/network-create.sh [--dry-run] [-h]
 
 Crée le réseau Docker externe « proxy » (variable PROXY_NETWORK pour changer le nom).
@@ -33,7 +33,7 @@ done
 
 require_docker
 
-if docker network inspect "$PROXY_NETWORK" >/dev/null 2>&1; then
+if docker network inspect "$PROXY_NETWORK" > /dev/null 2>&1; then
   driver="$(docker network inspect -f '{{.Driver}}' "$PROXY_NETWORK")"
   [[ "$driver" == "bridge" ]] || die "le réseau « $PROXY_NETWORK » existe mais son driver est « $driver » (bridge attendu)"
   log "réseau « $PROXY_NETWORK » déjà présent"
@@ -42,7 +42,7 @@ else
     run docker network create --driver bridge "$PROXY_NETWORK"
     log "réseau « $PROXY_NETWORK » à créer"
   else
-    docker network create --driver bridge "$PROXY_NETWORK" >/dev/null
+    docker network create --driver bridge "$PROXY_NETWORK" > /dev/null
     log "réseau « $PROXY_NETWORK » créé"
   fi
 fi

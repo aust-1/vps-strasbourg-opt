@@ -7,7 +7,7 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 
 usage() {
-  cat <<'EOF'
+  cat << 'EOF'
 Usage : scripts/restore.sh [--only VOLUME]... [--with-env] [--yes] [--dry-run] <archive.tar.gz>
 
 Vérifie la somme de contrôle (<archive>.sha256), affiche le manifeste, puis remplace le contenu
@@ -113,7 +113,7 @@ confirm "Confirmer la restauration ?"
 
 for v in ${TO_RESTORE[@]+"${TO_RESTORE[@]}"}; do
   log "restauration de $v"
-  run docker volume create "$v" >/dev/null
+  run docker volume create "$v" > /dev/null
   run docker run --rm -v "$v":/data -v "$WORK/volumes":/in:ro "$HELPER_IMAGE" \
     sh -c "find /data -mindepth 1 -delete && tar xzf /in/$v.tar.gz -C /data"
 done

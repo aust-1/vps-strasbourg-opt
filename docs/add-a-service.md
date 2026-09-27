@@ -42,8 +42,8 @@ suffit à le faire parler avec le service web de la même app.
 
 ```caddyfile
 mondomaine.exemple.fr {
-	encode zstd gzip
-	reverse_proxy <nom>-web:<port>
+ encode zstd gzip
+ reverse_proxy <nom>-web:<port>
 }
 ```
 

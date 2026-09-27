@@ -13,7 +13,7 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 
 usage() {
-  cat <<'EOF'
+  cat << 'EOF'
 Usage : scripts/routes-sync.sh [--validate-only] [--check] [--no-reload] [--force-reload] [--dry-run] [-h]
 
 Sources : apps/<nom>/Caddyfile et services/<nom>/Caddyfile  ->  proxy/sites/<nom>.caddy
@@ -109,7 +109,7 @@ fi
 # --- 3. Écarts entre sources validées et proxy/sites -----------------------
 declare -a CHANGED=() ORPHANS=()
 for name in "${!SOURCE_OF[@]}"; do
-  if ! cmp -s "$STAGE/sites/$name.caddy" "$PROXY_SITES_DIR/$name.caddy" 2>/dev/null; then
+  if ! cmp -s "$STAGE/sites/$name.caddy" "$PROXY_SITES_DIR/$name.caddy" 2> /dev/null; then
     CHANGED+=("$name")
   fi
 done

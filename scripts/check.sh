@@ -11,7 +11,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/lib/perms.sh"
 
 usage() {
-  cat <<'EOF'
+  cat << 'EOF'
 Usage : scripts/check.sh [--strict] [--skip-shellcheck] [-h]
 
 Ne modifie rien. Affiche OK / ATTENTION / ÉCHEC pour chaque contrôle.
@@ -81,14 +81,14 @@ for f in scripts/*.sh scripts/lib/*.sh; do
 done
 
 if [[ "$SKIP_SHELLCHECK" == "0" ]]; then
-  if command -v shellcheck >/dev/null 2>&1; then
+  if command -v shellcheck > /dev/null 2>&1; then
     if shellcheck -x -P SCRIPTDIR -S warning scripts/*.sh scripts/lib/*.sh; then
       pass "shellcheck (local)"
     else
       fail "shellcheck"
     fi
-  elif docker image inspect koalaman/shellcheck:stable >/dev/null 2>&1 \
-    || docker pull -q koalaman/shellcheck:stable >/dev/null 2>&1; then
+  elif docker image inspect koalaman/shellcheck:stable > /dev/null 2>&1 \
+    || docker pull -q koalaman/shellcheck:stable > /dev/null 2>&1; then
     if docker run --rm -v "$OPT_ROOT":/mnt:ro -w /mnt koalaman/shellcheck:stable \
       -x -P SCRIPTDIR -S warning scripts/*.sh scripts/lib/*.sh; then
       pass "shellcheck (conteneur)"
@@ -184,32 +184,32 @@ check_unit() {
   local -a aliases=()
 
   if ! rendered="$(compose_render "$dir")"; then
-    if grep -q 'required variable' <<<"$rendered"; then
-      caution "$kind/$name : variable obligatoire sans valeur dans .env(.example) : $(grep -m1 'required variable' <<<"$rendered")"
+    if grep -q 'required variable' <<< "$rendered"; then
+      caution "$kind/$name : variable obligatoire sans valeur dans .env(.example) : $(grep -m1 'required variable' <<< "$rendered")"
       return 0
     fi
-    fail "$kind/$name : docker compose config invalide : $(head -n 3 <<<"$rendered" | tr '\n' ' ')"
+    fail "$kind/$name : docker compose config invalide : $(head -n 3 <<< "$rendered" | tr '\n' ' ')"
     return 0
   fi
   pass "$kind/$name : compose valide"
 
-  project="$(awk '/^name:/ {print $2; exit}' <<<"$rendered")"
+  project="$(awk '/^name:/ {print $2; exit}' <<< "$rendered")"
   if [[ "$project" == "$name" ]]; then
     pass "$kind/$name : nom de projet « $project » = nom du dossier (volumes stables)"
   else
     fail "$kind/$name : nom de projet « $project » ≠ dossier « $name » (les volumes changeraient : ajouter name: $name)"
   fi
 
-  if grep -qE '^\s+published:' <<<"$rendered"; then
+  if grep -qE '^\s+published:' <<< "$rendered"; then
     fail "$kind/$name : publie un port sur l'hôte (seul le proxy le peut)"
   fi
-  if ! grep -qE '^\s+name: '"$PROXY_NETWORK"'$' <<<"$rendered" || ! grep -q 'external: true' <<<"$rendered"; then
+  if ! grep -qE '^\s+name: '"$PROXY_NETWORK"'$' <<< "$rendered" || ! grep -q 'external: true' <<< "$rendered"; then
     fail "$kind/$name : réseau externe « $PROXY_NETWORK » non déclaré"
   fi
-  if grep -qE '^\s+privileged: true' <<<"$rendered"; then
+  if grep -qE '^\s+privileged: true' <<< "$rendered"; then
     fail "$kind/$name : conteneur privilégié"
   fi
-  if grep -q '/var/run/docker.sock' <<<"$rendered"; then
+  if grep -q '/var/run/docker.sock' <<< "$rendered"; then
     fail "$kind/$name : monte docker.sock"
   fi
 
@@ -220,7 +220,7 @@ check_unit() {
       fail "alias réseau « $a » en double : $name et ${ALIAS_OWNER[$a]}"
     fi
     ALIAS_OWNER[$a]="$name"
-  done < <(awk '/^[[:space:]]+aliases:/ {ina=1; next} ina && /^[[:space:]]+- / {sub(/^[[:space:]]+- /,""); print; next} {ina=0}' <<<"$rendered")
+  done < <(awk '/^[[:space:]]+aliases:/ {ina=1; next} ina && /^[[:space:]]+- / {sub(/^[[:space:]]+- /,""); print; next} {ina=0}' <<< "$rendered")
 
   while IFS= read -r c; do
     [[ -n "$c" ]] || continue
@@ -228,7 +228,7 @@ check_unit() {
       fail "container_name « $c » en double : $name et ${CONTAINER_OWNER[$c]}"
     fi
     CONTAINER_OWNER[$c]="$name"
-  done < <(awk '/^[[:space:]]+container_name:/ {print $2}' <<<"$rendered")
+  done < <(awk '/^[[:space:]]+container_name:/ {print $2}' <<< "$rendered")
 
   local missing=""
   [[ -f "$dir/.env.example" ]] || missing+=" .env.example"
@@ -246,13 +246,13 @@ check_unit() {
     done < <(grep -oE 'reverse_proxy +[a-z0-9._-]+' "$dir/Caddyfile" | awk '{print $2}' | sed 's/^https\?:\/\///' | sort -u)
   fi
 
-  if [[ "$kind" == "apps" ]] && ! git -C "$dir" check-ignore -q .env 2>/dev/null; then
+  if [[ "$kind" == "apps" ]] && ! git -C "$dir" check-ignore -q .env 2> /dev/null; then
     fail "$kind/$name : son .gitignore n'ignore pas .env"
   fi
 }
 
 if [[ -f "$PROXY_COMPOSE" ]]; then
-  if (cd "$PROXY_DIR" && docker compose config -q 2>/dev/null); then
+  if (cd "$PROXY_DIR" && docker compose config -q 2> /dev/null); then
     pass "proxy : compose valide"
   else
     fail "proxy : docker compose config invalide"
@@ -270,7 +270,7 @@ section "caddy"
 if out="$("$OPT_ROOT/scripts/routes-sync.sh" --validate-only 2>&1)"; then
   pass "Caddyfile assemblés valides"
 else
-  fail "Caddyfile invalides : $(tail -n 3 <<<"$out" | tr '\n' ' ')"
+  fail "Caddyfile invalides : $(tail -n 3 <<< "$out" | tr '\n' ' ')"
 fi
 
 echo

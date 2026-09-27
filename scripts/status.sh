@@ -7,7 +7,7 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 
 usage() {
-  cat <<'EOF'
+  cat << 'EOF'
 Usage : scripts/status.sh [-h]
 
 Affiche le dépôt (commit, branche, arbre propre ?), le réseau proxy, l'état de Caddy, puis une
@@ -66,7 +66,7 @@ if [[ -n "$(git status --porcelain)" ]]; then
 fi
 log "dépôt : $(git rev-parse --short HEAD) sur $branch, arbre $dirty"
 
-if docker network inspect "$PROXY_NETWORK" >/dev/null 2>&1; then
+if docker network inspect "$PROXY_NETWORK" > /dev/null 2>&1; then
   log "réseau $PROXY_NETWORK : présent"
 else
   log "réseau $PROXY_NETWORK : ABSENT (scripts/network-create.sh)"

@@ -52,14 +52,14 @@ die() {
 require_cmd() {
   local cmd
   for cmd in "$@"; do
-    command -v "$cmd" >/dev/null 2>&1 || die "commande requise introuvable : $cmd" 3
+    command -v "$cmd" > /dev/null 2>&1 || die "commande requise introuvable : $cmd" 3
   done
 }
 
 require_docker() {
   require_cmd docker
-  docker compose version >/dev/null 2>&1 || die "« docker compose » (plugin v2) est requis" 3
-  docker info >/dev/null 2>&1 || die "le démon Docker ne répond pas (droits du groupe docker ? service arrêté ?)" 3
+  docker compose version > /dev/null 2>&1 || die "« docker compose » (plugin v2) est requis" 3
+  docker info > /dev/null 2>&1 || die "le démon Docker ne répond pas (droits du groupe docker ? service arrêté ?)" 3
 }
 
 require_root() {
@@ -69,14 +69,14 @@ require_root() {
 require_repo() {
   require_cmd git
   local top
-  top="$(git -C "$OPT_ROOT" rev-parse --show-toplevel 2>/dev/null || true)"
+  top="$(git -C "$OPT_ROOT" rev-parse --show-toplevel 2> /dev/null || true)"
   [[ -n "$top" ]] || die "$OPT_ROOT n'est pas un dépôt git" 3
   [[ "$(cd "$top" && pwd -P)" == "$OPT_ROOT" ]] \
     || die "le dépôt git englobant est $top, attendu : $OPT_ROOT" 3
 }
 
 require_network() {
-  docker network inspect "$PROXY_NETWORK" >/dev/null 2>&1 && return 0
+  docker network inspect "$PROXY_NETWORK" > /dev/null 2>&1 && return 0
   # En dry-run le réseau n'a pas été créé pour de vrai : on l'accepte, sans le taire.
   if [[ "$DRY_RUN" == "1" ]]; then
     warn "le réseau Docker « $PROXY_NETWORK » n'existe pas (normal en dry-run)"

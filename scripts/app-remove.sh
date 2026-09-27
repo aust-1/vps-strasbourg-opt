@@ -7,7 +7,7 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 
 usage() {
-  cat <<'EOF'
+  cat << 'EOF'
 Usage : scripts/app-remove.sh [--purge-volumes] [--yes] [--commit] [--dry-run] <nom>
 
 Étapes : docker compose down -> copie du .env dans backups/removed/ -> git submodule deinit

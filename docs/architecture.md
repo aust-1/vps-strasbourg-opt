@@ -8,11 +8,11 @@ d'un VPS. Cette restructuration garde l'idée de départ — le routage d'une ap
 dépôt, pas dans un fichier central — sans le défaut (un proxy par app) : **un seul Caddy**
 partagé importe le `Caddyfile` de chaque app.
 
-```
-                         ┌────────────────────────────┐
+```plaintext
+                         ┌─────────────────────────────┐
  Internet ── 80/443 ──▶  │  proxy/  (Caddy, seul       │
                          │  service sur ces ports)     │
-                         │  Caddyfile = import sites/*  │
+                         │  Caddyfile = import sites/* │
                          └──────────────┬──────────────┘
                                         │ réseau externe « proxy »
                     ┌───────────┬───────┴───────┬───────────────┐

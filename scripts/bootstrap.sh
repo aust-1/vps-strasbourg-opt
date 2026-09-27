@@ -7,7 +7,7 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 
 usage() {
-  cat <<'EOF'
+  cat << 'EOF'
 Usage : scripts/bootstrap.sh [--deploy-all] [--skip-check] [--dry-run] [-h]
 
 Étapes : prérequis -> réseau proxy -> sous-modules -> création des .env manquants ->

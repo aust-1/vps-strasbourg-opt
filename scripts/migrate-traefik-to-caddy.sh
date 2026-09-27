@@ -13,7 +13,7 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 
 usage() {
-  cat <<'EOF'
+  cat << 'EOF'
 Usage : scripts/migrate-traefik-to-caddy.sh [--old-opt CHEMIN] [--skip-backup] [--yes] [--dry-run]
         scripts/migrate-traefik-to-caddy.sh --rollback [--old-opt CHEMIN] [--yes] [--dry-run]
 
@@ -79,7 +79,7 @@ compose_dirs() {
 stack_down() {
   local root="$1" dir
   while IFS= read -r dir; do
-    [[ -n "$(cd "$dir" && docker compose ps -q 2>/dev/null)" ]] || continue
+    [[ -n "$(cd "$dir" && docker compose ps -q 2> /dev/null)" ]] || continue
     log "arrêt : $dir"
     (cd "$dir" && run docker compose down --remove-orphans)
   done < <(compose_dirs "$root")
@@ -99,7 +99,7 @@ stack_up() {
 
 # project_name <dossier> : nom de projet compose (clé « name: » du compose).
 project_name() {
-  (cd "$1" && docker compose config 2>/dev/null | awk '/^name:/ {print $2; exit}')
+  (cd "$1" && docker compose config 2> /dev/null | awk '/^name:/ {print $2; exit}')
 }
 
 # migration_volumes : volumes des projets concernés (ancienne ET nouvelle pile) uniquement —
@@ -110,7 +110,10 @@ migration_volumes() {
     proj="$(project_name "$dir")"
     [[ -n "$proj" ]] || continue
     docker volume ls -q --filter "label=com.docker.compose.project=$proj"
-  done < <(compose_dirs "$OLD_OPT"; compose_dirs "$OPT_ROOT") | sort -u
+  done < <(
+    compose_dirs "$OLD_OPT"
+    compose_dirs "$OPT_ROOT"
+  ) | sort -u
 }
 
 backup_migration_volumes() {
@@ -172,7 +175,7 @@ else
   fail=0
   while IFS= read -r host; do
     [[ -n "$host" ]] || continue
-    code="$(curl -fsS -o /dev/null -w '%{http_code}' --max-time 10 "https://$host/" 2>/dev/null || echo "échec")"
+    code="$(curl -fsS -o /dev/null -w '%{http_code}' --max-time 10 "https://$host/" 2> /dev/null || echo "échec")"
     if [[ "$code" =~ ^(2|3) ]]; then
       log "$host : $code"
     else
