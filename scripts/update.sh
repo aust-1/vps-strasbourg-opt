@@ -31,7 +31,7 @@ submodule_head() {
   if [[ -e "$1/.git" ]]; then git -C "$1" rev-parse HEAD 2>/dev/null || echo none; else echo none; fi
 }
 
-$1 : bash la lit en entier avant de l'exécuter, donc
+# Toute la logique est dans une fonction : bash la lit en entier avant de l'exécuter, donc
 # le pull peut réécrire ce fichier sans corrompre l'exécution en cours.
 main() {
   local deploy=0 routes=1 force=0
