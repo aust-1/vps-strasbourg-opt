@@ -1,0 +1,20 @@
+services:
+  docusaurus-prod:
+    image: ghcr.io/aust-1/documentation:latest
+    container_name: documentation
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.documentation.rule=Host(`docs.eliott-roussille.fr`)"
+      - "traefik.http.routers.documentation.entrypoints=websecure"
+      - "traefik.http.routers.documentation.tls.certresolver=myresolver"
+      # IMPORTANT: mets 80 si c'est nginx/statique, 3000 si serveur node
+      - "traefik.http.services.documentation.loadbalancer.server.port=80"
+    networks:
+      - traefik-network
+
+networks:
+  traefik-network:
+    external: true
