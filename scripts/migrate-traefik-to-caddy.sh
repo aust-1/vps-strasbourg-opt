@@ -97,15 +97,32 @@ stack_up() {
   done < <(compose_dirs "$root")
 }
 
-backup_all_volumes() {
-  local dest="$OPT_ROOT/backups/pre-migration-$(stamp)" v
+# project_name <dossier> : nom de projet compose (clé « name: » du compose).
+project_name() {
+  (cd "$1" && docker compose config 2>/dev/null | awk '/^name:/ {print $2; exit}')
+}
+
+# migration_volumes : volumes des projets concernés (ancienne ET nouvelle pile) uniquement —
+# jamais « docker volume ls » brut, qui embarquerait aussi des volumes d'autres projets du même hôte.
+migration_volumes() {
+  local dir proj
+  while IFS= read -r dir; do
+    proj="$(project_name "$dir")"
+    [[ -n "$proj" ]] || continue
+    docker volume ls -q --filter "label=com.docker.compose.project=$proj"
+  done < <(compose_dirs "$OLD_OPT"; compose_dirs "$OPT_ROOT") | sort -u
+}
+
+backup_migration_volumes() {
+  local dest v
+  dest="$OPT_ROOT/backups/pre-migration-$(stamp)"
   run mkdir -p "$dest"
   run chmod 700 "$OPT_ROOT/backups" "$dest"
   while IFS= read -r v; do
     [[ -n "$v" ]] || continue
     log "sauvegarde du volume $v"
     run docker run --rm -v "$v":/data:ro -v "$dest":/out alpine:3 tar czf "/out/$v.tar.gz" -C /data .
-  done < <(docker volume ls -q)
+  done < <(migration_volumes)
   log "sauvegarde : $dest"
 }
 
@@ -135,8 +152,8 @@ confirm "Sauvegarder les volumes, arrêter Traefik et l'ancienne pile, puis dém
 if [[ "$SKIP_BACKUP" == "1" ]]; then
   warn "sauvegarde sautée (--skip-backup)"
 else
-  log "=== 1/4 sauvegarde de tous les volumes Docker ==="
-  backup_all_volumes
+  log "=== 1/4 sauvegarde des volumes de l'ancienne et de la nouvelle pile ==="
+  backup_migration_volumes
 fi
 
 log "=== 2/4 arrêt de l'ancienne pile ==="
