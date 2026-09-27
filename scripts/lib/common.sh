@@ -76,8 +76,13 @@ require_repo() {
 }
 
 require_network() {
-  docker network inspect "$PROXY_NETWORK" >/dev/null 2>&1 \
-    || die "le réseau Docker « $PROXY_NETWORK » n'existe pas (scripts/network-create.sh)" 3
+  docker network inspect "$PROXY_NETWORK" >/dev/null 2>&1 && return 0
+  # En dry-run le réseau n'a pas été créé pour de vrai : on l'accepte, sans le taire.
+  if [[ "$DRY_RUN" == "1" ]]; then
+    warn "le réseau Docker « $PROXY_NETWORK » n'existe pas (normal en dry-run)"
+    return 0
+  fi
+  die "le réseau Docker « $PROXY_NETWORK » n'existe pas (scripts/network-create.sh)" 3
 }
 
 # --- Exécution -------------------------------------------------------------
