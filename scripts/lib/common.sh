@@ -32,7 +32,12 @@ ASSUME_YES="${ASSUME_YES:-0}"
 
 # --- Journalisation --------------------------------------------------------
 
-log() { printf '[%s] %s\n' "$(date +%H:%M:%S)" "$*"; }
+# En --dry-run, tout message d'action est préfixé pour ne jamais laisser croire qu'il a été fait.
+log() {
+  local prefix=""
+  if [[ "$DRY_RUN" == "1" ]]; then prefix="(dry-run) "; fi
+  printf '[%s] %s%s\n' "$(date +%H:%M:%S)" "$prefix" "$*"
+}
 warn() { printf '[%s] ATTENTION : %s\n' "$(date +%H:%M:%S)" "$*" >&2; }
 err() { printf '[%s] ERREUR : %s\n' "$(date +%H:%M:%S)" "$*" >&2; }
 
