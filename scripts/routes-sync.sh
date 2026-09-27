@@ -14,11 +14,12 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 
 usage() {
   cat <<'EOF'
-Usage : scripts/routes-sync.sh [--check] [--no-reload] [--force-reload] [--dry-run] [-h]
+Usage : scripts/routes-sync.sh [--validate-only] [--check] [--no-reload] [--force-reload] [--dry-run] [-h]
 
 Sources : apps/<nom>/Caddyfile et services/<nom>/Caddyfile  ->  proxy/sites/<nom>.caddy
 
 Options :
+  --validate-only  valide seulement les Caddyfile assemblés ; ne compare ni ne modifie rien
   --check         valide et signale un écart entre sources et proxy/sites, sans rien modifier
                   (code 1 s'il y a un écart)
   --no-reload     ne recharge pas Caddy après la copie
@@ -32,10 +33,15 @@ EOF
 }
 
 CHECK=0
+VALIDATE_ONLY=0
 RELOAD=1
 FORCE_RELOAD=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --validate-only)
+      VALIDATE_ONLY=1
+      shift
+      ;;
     --check)
       CHECK=1
       shift
@@ -93,6 +99,11 @@ if ! VALIDATION="$(docker run --rm \
   "$IMAGE" caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile 2>&1)"; then
   printf '%s\n' "$VALIDATION" >&2
   die "configuration Caddy invalide : proxy/sites n'a pas été modifié"
+fi
+
+if [[ "$VALIDATE_ONLY" == "1" ]]; then
+  log "configuration valide"
+  exit 0
 fi
 
 # --- 3. Écarts entre sources validées et proxy/sites -----------------------
