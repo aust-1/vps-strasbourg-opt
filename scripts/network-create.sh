@@ -38,6 +38,11 @@ if docker network inspect "$PROXY_NETWORK" >/dev/null 2>&1; then
   [[ "$driver" == "bridge" ]] || die "le réseau « $PROXY_NETWORK » existe mais son driver est « $driver » (bridge attendu)"
   log "réseau « $PROXY_NETWORK » déjà présent"
 else
-  run docker network create --driver bridge "$PROXY_NETWORK"
-  log "réseau « $PROXY_NETWORK » créé"
+  if [[ "$DRY_RUN" == "1" ]]; then
+    run docker network create --driver bridge "$PROXY_NETWORK"
+    log "réseau « $PROXY_NETWORK » à créer (dry-run : rien n'a été fait)"
+  else
+    docker network create --driver bridge "$PROXY_NETWORK" >/dev/null
+    log "réseau « $PROXY_NETWORK » créé"
+  fi
 fi
