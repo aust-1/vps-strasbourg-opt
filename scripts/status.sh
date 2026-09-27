@@ -84,7 +84,7 @@ printf '\n%-18s %-8s %-9s %-9s %-6s %s\n' UNITÉ TYPE COMMIT CONTENEURS ENV ROUT
 while IFS= read -r unit; do
   name="$(basename "$unit")"
   kind="service"
-  commit="(dépôt)"
+  commit="repo"
   if [[ "$unit" == "$APPS_DIR"/* ]]; then
     kind="app"
     if [[ -e "$unit/.git" ]]; then
