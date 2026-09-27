@@ -15,7 +15,7 @@ Usage : scripts/app-add.sh [--branch BRANCHE] [--no-route] [--commit] [--dry-run
 <url-git>  https://…, ssh://…, git@hôte:…  (file://… pour les tests)
 
 Contrat de l'app (voir docs/add-a-service.md) : docker-compose.yml, Caddyfile, .env.example
-à la racine de son dépôt.
+à la racine de son dépôt, et un .gitignore qui ignore .env.
 
 Options :
   --branch B   suit la branche B (défaut : branche par défaut du dépôt de l'app)
@@ -121,6 +121,14 @@ fi
 if [[ ! -f "$REL/.env" ]]; then
   (umask 077 && cp "$REL/.env.example" "$REL/.env")
   log ".env créé depuis .env.example : à compléter"
+fi
+
+# Un .env non ignoré rendrait le sous-module « modifié » en permanence (update.sh refuserait
+# de tourner) et exposerait les secrets à un « git add » accidentel.
+if ! git -C "$REL" check-ignore -q .env; then
+  err "le .gitignore de l'app doit ignorer .env (contrat : docs/add-a-service.md)"
+  rollback
+  exit 1
 fi
 
 "$OPT_ROOT/scripts/fix-perms.sh"
