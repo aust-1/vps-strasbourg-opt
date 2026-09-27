@@ -95,14 +95,12 @@ declare -a UNIT_DIRS=("$PROXY_DIR")
 while IFS= read -r u; do UNIT_DIRS+=("$u"); done < <(list_units)
 
 declare -a VOLUMES=()
-declare -A VOLUME_UNIT=()
 for dir in "${UNIT_DIRS[@]}"; do
   proj="$(project_name "$dir")"
   [[ -n "$proj" ]] || die "nom de projet compose introuvable pour $dir"
   while IFS= read -r v; do
     [[ -n "$v" ]] || continue
     VOLUMES+=("$v")
-    VOLUME_UNIT[$v]="$dir"
   done < <(docker volume ls -q --filter "label=com.docker.compose.project=$proj")
 done
 
