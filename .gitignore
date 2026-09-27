@@ -1,0 +1,19 @@
+# Créé et géré par Docker/containerd (root) : ne JAMAIS versionner ni modifier.
+/containerd/
+
+# Secrets : seuls les .env.example sont versionnés.
+.env
+.env.*
+!.env.example
+
+# Routes Caddy assemblées par scripts/routes-sync.sh (copies des Caddyfile des apps).
+/proxy/sites/*
+!/proxy/sites/.gitkeep
+
+# Sauvegardes et anciennes installations.
+/backups/
+/.legacy-*/
+
+# Divers
+*.log
+*.tmp

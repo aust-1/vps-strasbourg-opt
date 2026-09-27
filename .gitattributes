@@ -1,0 +1,7 @@
+# Fins de ligne LF partout : un script en CRLF est inexécutable sous Linux (« ^M »).
+* text=auto eol=lf
+*.sh text eol=lf
+Caddyfile text eol=lf
+*.caddy text eol=lf
+*.yml text eol=lf
+*.md text eol=lf
