@@ -82,7 +82,7 @@ log "=== 6/8 contrôle ==="
 if [[ "$SKIP_CHECK" == "1" ]]; then
   warn "check.sh sauté (--skip-check)"
 elif [[ "$DRY_RUN" == "1" ]]; then
-  log "(dry-run) scripts/check.sh --skip-shellcheck"
+  log "scripts/check.sh --skip-shellcheck (non exécuté)"
 else
   "$OPT_ROOT/scripts/check.sh" --skip-shellcheck || die "check.sh a échoué : corriger avant de démarrer (aucun service démarré)"
 fi
@@ -97,7 +97,7 @@ fi
 
 log "=== 8/8 état ==="
 if [[ "$DRY_RUN" == "1" ]]; then
-  log "(dry-run) scripts/status.sh"
+  log "scripts/status.sh (non exécuté)"
 else
   "$OPT_ROOT/scripts/status.sh" || warn "status.sh signale des anomalies (normal tant que les apps ne sont pas déployées)"
 fi
