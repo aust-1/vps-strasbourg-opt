@@ -129,12 +129,18 @@ backup_migration_volumes() {
   log "sauvegarde : $dest"
 }
 
-# domains_to_check : premier nom d'hôte de chaque Caddyfile assemblé.
+# domains_to_check : chaque nom d'hôte de chaque bloc de site des Caddyfile assemblés.
+# (pas seulement la première ligne : un Caddyfile peut commencer par un commentaire, ou
+# déclarer plusieurs domaines dans un même bloc, ex. « www -> apex » de portfolio.)
 domains_to_check() {
   local f
   for f in "$PROXY_SITES_DIR"/*.caddy; do
     [[ -e "$f" ]] || continue
-    awk 'NR==1 {print $1; exit}' "$f"
+    # en-tête de bloc de site : en colonne 0, hors commentaire, se terminant par « { »
+    grep -E '^[^[:space:]#].*\{[[:space:]]*$' "$f" \
+      | sed -E 's/[[:space:]]*\{[[:space:]]*$//' \
+      | tr ',' '\n' \
+      | awk '{for (i = 1; i <= NF; i++) print $i}'
   done
 }
 
