@@ -1,0 +1,25 @@
+analytics.eliott-roussille.fr {
+	encode zstd gzip
+
+	# Limite de la plus grosse route du backend (import d'événements)
+	request_body {
+		max_size 50MiB
+	}
+
+	handle /api/* {
+		reverse_proxy rybbit-backend:3001
+	}
+
+	# Documents de découverte OAuth/OIDC (clients MCP) : servis par le backend, à la racine
+	handle /.well-known/oauth-* {
+		reverse_proxy rybbit-backend:3001
+	}
+	handle /.well-known/openid-configuration* {
+		reverse_proxy rybbit-backend:3001
+	}
+
+	# Tout le reste : tableau de bord
+	handle {
+		reverse_proxy rybbit-client:3002
+	}
+}

@@ -31,6 +31,7 @@ S'arrête avant de rien démarrer si `check.sh` échoue.
 ```bash
 nano apps/bourse-tracker/.env       # Supabase, Resend, Healthchecks…
 nano services/uptime-kuma/.env      # rien de requis par défaut
+nano services/rybbit/.env           # URL + secrets (openssl rand -hex 32) ; voir docs/runbook.md
 # … une app par une app, selon ce que scripts/bootstrap.sh a signalé comme « à compléter »
 ```
 

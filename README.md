@@ -9,7 +9,7 @@ passe par un script dédié dans `scripts/`, jamais par une commande tapée à l
 ```plaintext
 /opt
 ├── proxy/              reverse proxy Caddy partagé (seul service sur les ports 80/443)
-├── services/           services sans dépôt propre (actuellement : uptime-kuma)
+├── services/           services sans dépôt propre (uptime-kuma, rybbit)
 ├── apps/                sous-modules git : chaque app est le code d'un dépôt tiers
 ├── scripts/             un script par action, plus scripts/lib/ (bibliothèque commune)
 ├── legacy/              anciens fichiers Traefik, conservés pour le retour arrière

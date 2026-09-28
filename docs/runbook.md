@@ -68,6 +68,37 @@ scripts/check.sh
 secret versionné, contrat de chaque app/service (alias en double, ports publiés, `docker.sock`,
 nom de projet, cible du `reverse_proxy`), validité de la configuration Caddy assemblée.
 
+## Statistiques de visite (Rybbit)
+
+Tableau de bord : <https://analytics.eliott-roussille.fr> (`services/rybbit`). Le DNS de ce
+sous-domaine doit pointer vers le VPS avant le premier déploiement (certificat).
+
+Première mise en route :
+
+```bash
+cp services/rybbit/.env.example services/rybbit/.env
+nano services/rybbit/.env               # BETTER_AUTH_SECRET et les 3 mots de passe : openssl rand -hex 32
+scripts/fix-perms.sh
+scripts/app-deploy.sh rybbit
+```
+
+1. Ouvrir le tableau de bord, créer le compte administrateur.
+2. Passer `DISABLE_SIGNUP=true` dans `services/rybbit/.env`, puis `scripts/app-deploy.sh rybbit`
+   (sinon n'importe qui peut créer un compte).
+3. Ajouter les sites **dans cet ordre** : leurs identifiants sont ceux déjà codés en dur dans le
+   `data-site-id` de chaque app — vérifier dans le tableau de bord (réglages du site → code de
+   suivi) et corriger l'app si un identifiant diffère.
+
+| ID  | Domaine                      | Où est inséré le script                                  |
+| --- | ---------------------------- | -------------------------------------------------------- |
+| 1   | `eliott-roussille.fr`        | `apps/portfolio/site/index.html`                         |
+| 2   | `docs.eliott-roussille.fr`   | `apps/documentation/site/docusaurus.config.ts` (scripts) |
+| 3   | `bourse.eliott-roussille.fr` | `apps/bourse-tracker/apps/web/app/layout.tsx`            |
+
+Monter de version : changer `RYBBIT_VERSION` dans `.env` (les notes de version indiquent les
+migrations éventuelles), puis `scripts/app-deploy.sh rybbit`. Les volumes ClickHouse/Postgres ne
+sont copiés de façon cohérente que par `scripts/backup.sh --stop` (celui du cron).
+
 ## Pannes fréquentes
 
 ### Un domaine répond 502 / ne répond plus

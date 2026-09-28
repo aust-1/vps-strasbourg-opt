@@ -15,12 +15,17 @@ partagé importe le `Caddyfile` de chaque app.
                          │  Caddyfile = import sites/* │
                          └──────────────┬──────────────┘
                                         │ réseau externe « proxy »
-                    ┌───────────┬───────┴───────┬───────────────┐
-                    │           │               │               │
-             apps/bourse-   apps/portfolio  apps/documentation  services/
-             tracker (alias  (alias          (alias              uptime-kuma
-             bourse-web)     portfolio)       documentation)     (alias uptime-kuma)
+                    ┌───────────┬───────┴───────┬───────────────┬──────────────────┐
+                    │           │               │               │                  │
+             apps/bourse-   apps/portfolio  apps/documentation  services/          services/rybbit
+             tracker (alias  (alias          (alias              uptime-kuma        (alias rybbit-backend
+             bourse-web)     portfolio)       documentation)     (alias uptime-kuma) et rybbit-client)
 ```
+
+`services/rybbit` (statistiques de visite des trois apps) illustre aussi le cas des bases
+internes : ClickHouse, Postgres et Redis restent sur son réseau `default`, seuls le backend
+(`/api/*`, qui reçoit aussi les événements des sites suivis) et le tableau de bord rejoignent
+`proxy`.
 
 ## Réseaux Docker
 
