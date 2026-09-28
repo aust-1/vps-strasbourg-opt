@@ -140,7 +140,7 @@ wait_domain_ok() {
     # l'affectation à un code de sortie 0 (set -e ferait sinon échouer tout le script sur un
     # simple 000, alors que c'est justement le cas que cette boucle doit gérer, pas subir) ;
     # le second couvre les rares cas où rien n'est écrit du tout (échec de résolution DNS).
-    code="$(curl -fsS -o /dev/null -w '%{http_code}' --max-time 10 "https://$host/" 2>/dev/null || true)"
+    code="$(curl -fsS -o /dev/null -w '%{http_code}' --max-time 10 "https://$host/" 2> /dev/null || true)"
     [[ -n "$code" ]] || code="000"
     [[ "$code" =~ ^(2|3) ]] && {
       echo "$code"
