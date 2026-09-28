@@ -129,6 +129,26 @@ backup_migration_volumes() {
   log "sauvegarde : $dest"
 }
 
+# wait_domain_ok <hôte> : jusqu'à 90s. Au démarrage, Caddy obtient ses certificats ACME pour
+# tous les domaines déclarés (une dizaine de secondes chacun, en série) : un premier essai
+# immédiatement après app-deploy.sh tomberait souvent dans cette fenêtre et donnerait une
+# fausse alerte (code 000, alors que tout finit par fonctionner quelques secondes plus tard).
+wait_domain_ok() {
+  local host="$1" deadline=$((SECONDS + 90)) code
+  while :; do
+    code="$(curl -fsS -o /dev/null -w '%{http_code}' --max-time 10 "https://$host/" 2>/dev/null || echo "échec")"
+    [[ "$code" =~ ^(2|3) ]] && {
+      echo "$code"
+      return 0
+    }
+    ((SECONDS >= deadline)) && {
+      echo "$code"
+      return 1
+    }
+    sleep 3
+  done
+}
+
 # domains_to_check : chaque nom d'hôte de chaque bloc de site des Caddyfile assemblés.
 # (pas seulement la première ligne : un Caddyfile peut commencer par un commentaire, ou
 # déclarer plusieurs domaines dans un même bloc, ex. « www -> apex » de portfolio.)
@@ -181,11 +201,10 @@ else
   fail=0
   while IFS= read -r host; do
     [[ -n "$host" ]] || continue
-    code="$(curl -fsS -o /dev/null -w '%{http_code}' --max-time 10 "https://$host/" 2> /dev/null || echo "échec")"
-    if [[ "$code" =~ ^(2|3) ]]; then
+    if code="$(wait_domain_ok "$host")"; then
       log "$host : $code"
     else
-      err "$host : $code (certificat pas encore émis ? DNS pas encore propagé ?)"
+      err "$host : $code après 90s (certificat pas encore émis ? DNS pas encore propagé ?)"
       fail=1
     fi
   done < <(domains_to_check)
