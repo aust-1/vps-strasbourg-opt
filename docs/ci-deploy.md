@@ -153,14 +153,16 @@ Puis mettre à jour `VPS_SSH_KEY` dans le dépôt de l'app.
 
 ## Dépannage
 
-| Symptôme dans le workflow                    | Cause et remède                                                                    |
-| -------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `Host key verification failed`               | `VPS_KNOWN_HOSTS` faux ou serveur réinstallé : le régénérer (voir plus haut)       |
-| `Permission denied (publickey)`              | clé non autorisée : `deploy-install.sh --key <app> …` ; vérifier `--status`        |
-| `sudo: a password is required`               | règle sudoers absente pour cette app : relancer `scripts/deploy-install.sh`        |
-| `opt-deploy : … a des modifications locales` | correctif fait sur le serveur : le committer dans le dépôt de l'app, ou l'annuler  |
-| `un autre déploiement est toujours en cours` | un déploiement dure plus de 15 min : voir `/var/log/opt-deploy.log`                |
-| conteneur non sain                           | `cd /opt/apps/<app> && docker compose logs --tail=100`, puis corriger et repousser |
+| Symptôme dans le workflow                                | Cause et remède                                                                                                                                                           |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Host key verification failed`                           | `VPS_KNOWN_HOSTS` faux ou serveur réinstallé : le régénérer (voir plus haut)                                                                                              |
+| `Permission denied (publickey)`                          | clé non autorisée : `deploy-install.sh --key <app> …` ; vérifier `--status`                                                                                               |
+| `sudo: a password is required`                           | règle sudoers absente pour cette app : relancer `scripts/deploy-install.sh`                                                                                               |
+| `opt-deploy : … a des modifications locales`             | correctif fait sur le serveur : le committer dans le dépôt de l'app, ou l'annuler                                                                                         |
+| `un autre déploiement est toujours en cours`             | un déploiement dure plus de 15 min : voir `/var/log/opt-deploy.log`                                                                                                       |
+| conteneur non sain                                       | `cd /opt/apps/<app> && docker compose logs --tail=100`, puis corriger et repousser                                                                                        |
+| `avertissement : pointeur du sous-module non aligné`     | le commit dans `/opt` a échoué : identité git de root (`git -C /opt config user.name …` et `user.email`) ou index de `/opt` déjà modifié ; le site est quand même déployé |
+| `docker pull` refusé (image privée, ex. `documentation`) | rendre le paquet GHCR public, ou `docker login ghcr.io` une fois en root avec un jeton `read:packages`                                                                    |
 
 Historique complet : `/var/log/opt-deploy.log` (lisible par root et le groupe `adm`).
 
