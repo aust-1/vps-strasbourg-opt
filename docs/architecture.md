@@ -78,13 +78,14 @@ projet, `docker.sock`, cible du `reverse_proxy`…).
 
 ## Déploiement automatique
 
-Chaque app garde son propre workflow CI/CD (ex. `apps/bourse-tracker/.github/workflows/deploy.yml`),
-qui avance SON dépôt sur le VPS (`git fetch`/`reset --hard origin/main` dans SON `infra/deploy.sh`
-— légitime, un sous-module est un dépôt git à part entière) puis reconstruit et redémarre. Pour
-que le dépôt opt reste le reflet fidèle du commit réellement déployé (sans quoi `git status`
-dans `/opt` afficherait ce sous-module comme modifié en permanence), le déploiement appelle en
-fin de course `scripts/app-bump.sh --to <commit> --commit <nom>` : il avance le pointeur du
-sous-module et crée un commit local dans opt — jamais de push automatique.
+Détail complet : `docs/ci-deploy.md`. En bref, quand la CI de `main` d'une app est verte, son
+workflow se connecte en SSH au compte `gh-deploy` avec une clé propre à l'app, bridée à une seule
+commande : `sudo opt-deploy <app>`. `/usr/local/sbin/opt-deploy` est une copie, hors de tout
+dépôt git, de `scripts/opt-deploy.sh` ; il avance le sous-module de l'app sur `origin/main`,
+lance `scripts/app-deploy.sh <app>` (build ou pull, healthchecks, routes) puis
+`scripts/app-bump.sh`, pour que le dépôt opt enregistre le commit réellement déployé (commit
+local, jamais de push automatique). Aucune app n'embarque de script de déploiement : un push sur
+une app ne peut pas modifier ce qui s'exécute en root.
 
 ## Limitation connue : permissions sous Windows/WSL
 

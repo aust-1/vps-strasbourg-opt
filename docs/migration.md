@@ -9,8 +9,8 @@ quelques secondes à quelques minutes selon la vitesse de build des images.
 - Les apps ont déjà été adaptées au proxy Caddy partagé dans leur propre dépôt (labels Traefik
   retirés, `Caddyfile` ajouté, réseau `proxy`) — c'est déjà fait pour `bourse-tracker`,
   `portfolio` et `documentation` au moment d'écrire ceci.
-- Repérer les secrets GitHub Actions de chaque app à mettre à jour après coup : `VPS_PATH`
-  passera de `/opt/<nom>` à `/opt/apps/<nom>`.
+- Repérer les dépôts d'app déployés par leur CI : leurs secrets et leur workflow changent après
+  coup (étape 8).
 - Les DNS pointent déjà vers ce VPS (migration, pas une nouvelle mise en production) : aucun
   changement DNS nécessaire, seul le service qui répond change.
 
@@ -90,8 +90,10 @@ telles qu'elles étaient sous `/opt.old`) — sans rien supprimer, ni images ni 
 
 ## 8. Mettre à jour les secrets CI/CD
 
-Dans chaque dépôt d'app (GitHub → Settings → Secrets and variables → Actions) :
-`VPS_PATH` = `/opt/apps/<nom>` (au lieu de l'ancien chemin).
+Le déploiement par CI passe désormais par `opt-deploy` et le compte `gh-deploy` : suivre
+`docs/ci-deploy.md` (installation sur le serveur, une clé par app, secrets `VPS_HOST`,
+`VPS_SSH_KEY`, `VPS_KNOWN_HOSTS`). Supprimer les anciens secrets `VPS_PATH`, `VPS_USER`,
+`VPS_SSH_PORT`, `GHCR_TOKEN` et `GHCR_USER` s'ils existent.
 
 ## 9. Période d'observation, puis nettoyage final
 

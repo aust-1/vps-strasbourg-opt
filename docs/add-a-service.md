@@ -81,16 +81,16 @@ sans pousser depuis le VPS si ce n'est pas l'usage prévu pour ce dépôt.
 
 ### Déploiement automatique (CI de l'app)
 
-Voir `docs/architecture.md` (section « Déploiement automatique ») : le workflow de l'app avance
-son propre sous-module, puis appelle `scripts/app-bump.sh` pour aligner le pointeur enregistré
-dans opt. Modèle pour `infra/deploy.sh` de l'app :
+Rien à écrire côté app hormis le workflow : tout passe par `opt-deploy`, commun à toutes les
+apps (voir `docs/ci-deploy.md`). Après l'ajout :
 
 ```bash
-git fetch --quiet origin main && git reset --hard origin/main
-docker compose build --pull && docker compose up -d --remove-orphans
-# … attendre que le healthcheck soit bon …
-../../scripts/app-bump.sh --to "$(git rev-parse HEAD)" --commit "$(basename "$PWD")" || true
+scripts/deploy-install.sh                                # ajoute la règle sudo de la nouvelle app
+scripts/deploy-install.sh --key <nom> 'ssh-ed25519 …'    # sa clé de CI
 ```
+
+Puis les secrets `VPS_HOST`, `VPS_SSH_KEY`, `VPS_KNOWN_HOSTS` et `.github/workflows/deploy.yml`
+dans le dépôt de l'app (modèle dans `docs/ci-deploy.md`). Protéger sa branche `main`.
 
 ### Retirer une app
 
@@ -101,6 +101,9 @@ scripts/app-remove.sh <nom> --purge-volumes    # + supprime ses volumes Docker (
 
 Sans `--purge-volumes`, les volumes Docker restent (au cas où) : le script indique comment les
 supprimer explicitement une fois sûr.
+
+Si l'app était déployée par sa CI : `scripts/deploy-install.sh --revoke <nom>` (sa clé), puis
+`scripts/deploy-install.sh` (retire sa règle sudo), et supprimer ses secrets `VPS_*` sur GitHub.
 
 ## Service sans dépôt propre (image tierce)
 

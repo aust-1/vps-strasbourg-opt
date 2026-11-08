@@ -146,3 +146,4 @@ fi
 log "app $NAME ajoutée. Suite :"
 log "  1. compléter $REL/.env"
 log "  2. scripts/app-deploy.sh $NAME"
+log "  3. (CI) scripts/deploy-install.sh, puis --key $NAME '<clé>' : voir docs/ci-deploy.md"

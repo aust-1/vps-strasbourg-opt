@@ -112,3 +112,6 @@ if [[ "$PURGE" == "0" ]]; then
   [[ -z "$vols" ]] || log "volumes conservés : $vols (suppression : docker volume rm …)"
 fi
 log "app $NAME retirée"
+if id gh-deploy > /dev/null 2>&1; then
+  log "déploiement par CI : scripts/deploy-install.sh --revoke $NAME, puis scripts/deploy-install.sh"
+fi

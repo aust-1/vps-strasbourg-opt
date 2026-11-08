@@ -44,6 +44,7 @@ voir `docs/deploy.md` et `docs/migration.md`.
 | [`docs/runbook.md`](docs/runbook.md)             | Opérations courantes, pannes fréquentes et leur remède    |
 | [`docs/add-a-service.md`](docs/add-a-service.md) | Pas à pas pour ajouter (ou retirer) une app ou un service |
 | [`docs/deploy.md`](docs/deploy.md)               | Mise en production sur un VPS neuf                        |
+| [`docs/ci-deploy.md`](docs/ci-deploy.md)         | Déploiement automatique depuis la CI des apps             |
 | [`docs/migration.md`](docs/migration.md)         | Bascule Traefik → Caddy depuis une installation existante |
 
 ## Scripts
@@ -60,6 +61,8 @@ Tous dans `scripts/`, tous avec `-h`/`--help`, tous idempotents, la plupart avec
 | `app-add.sh` / `app-remove.sh` | Ajoute / retire une app (sous-module)                                 |
 | `app-deploy.sh`                | Construit/démarre une unité (ou `--all`) et attend qu'elle soit saine |
 | `app-bump.sh`                  | Aligne le pointeur d'un sous-module sur le commit réellement déployé  |
+| `deploy-install.sh`            | Installe le déploiement par CI (gh-deploy, opt-deploy, clés bridées)  |
+| `opt-deploy.sh`                | Modèle de `/usr/local/sbin/opt-deploy`, seul point d'entrée des CI    |
 | `status.sh`                    | État d'ensemble (dépôt, réseau, proxy, chaque unité)                  |
 | `backup.sh` / `restore.sh`     | Sauvegarde/restauration des volumes Docker et des `.env`              |
 | `check.sh`                     | Contrôle de conformité complet, sans rien modifier                    |

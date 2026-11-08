@@ -60,10 +60,14 @@ Chaque app avec des données externes garde sa propre sauvegarde en plus (ex.
 
 ## 6. Déploiement automatique par app (optionnel)
 
-Voir le `docs/DEPLOY.md` (ou équivalent) de chaque app pour ses secrets CI/CD (`VPS_HOST`,
-`VPS_PATH=/opt/apps/<nom>`, clé SSH dédiée, clé d'hôte épinglée). Après un déploiement
-automatique, `scripts/status.sh` doit rester vert et `git -C apps/<nom> status` propre : sinon,
-voir `docs/architecture.md` (section « Déploiement automatique »).
+```bash
+scripts/deploy-install.sh                                 # compte gh-deploy, opt-deploy, sudoers
+scripts/deploy-install.sh --key <app> 'ssh-ed25519 …'      # une clé dédiée par app
+```
+
+Puis, dans chaque dépôt d'app, les secrets `VPS_HOST`, `VPS_SSH_KEY` et `VPS_KNOWN_HOSTS` et le
+workflow `deploy.yml` décrits dans `docs/ci-deploy.md`. Après un déploiement automatique,
+`scripts/status.sh` doit rester vert ; l'historique est dans `/var/log/opt-deploy.log`.
 
 ## Pare-feu
 

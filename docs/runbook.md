@@ -22,12 +22,23 @@ scripts/update.sh --deploy        # + redéploie les apps dont le sous-module a 
 Refuse si l'arbre git n'est pas propre ou si la branche n'est pas `main` (`--force` pour passer
 outre — le `pull` reste `--ff-only` dans tous les cas : jamais de fusion ni de rebase surprise).
 
-## Déployer une app après une modification manuelle
+## Déployer une app
 
 ```bash
-scripts/app-deploy.sh <nom>       # build/pull, up -d, attend les healthchecks, publie la route
+sudo opt-deploy <nom>             # dernier commit de main : exactement ce que fait la CI
+scripts/app-deploy.sh <nom>       # commit actuel, sans git : build/pull, up -d, healthchecks, route
 scripts/app-deploy.sh --all       # proxy, puis chaque service, puis chaque app
 ```
+
+## Déploiements automatiques (CI des apps)
+
+```bash
+scripts/deploy-install.sh --status          # règle sudo et clé CI de chaque app
+tail -n 50 /var/log/opt-deploy.log          # historique (qui, quoi, quel commit, résultat)
+scripts/deploy-install.sh --revoke <nom>    # couper la CI d'une app (clé fuitée, gel…)
+```
+
+Pannes fréquentes et remèdes : tableau « Dépannage » de `docs/ci-deploy.md`.
 
 ## Consulter les journaux
 
