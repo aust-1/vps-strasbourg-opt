@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Contrôle de conformité de /opt, sans rien modifier. À lancer avant tout commit/déploiement.
 # Vérifie : scripts (forme, LF, bit exécutable, shellcheck), composes, Caddyfile, permissions,
+# déploiement automatique (sur le serveur),
 # cohérence des sous-modules, et le contrat de chaque app/service (nom de projet, réseau,
 # ports, alias uniques, cibles des reverse_proxy).
 set -euo pipefail
@@ -271,6 +272,27 @@ if out="$("$OPT_ROOT/scripts/routes-sync.sh" --validate-only 2>&1)"; then
   pass "Caddyfile assemblés valides"
 else
   fail "Caddyfile invalides : $(tail -n 3 <<< "$out" | tr '\n' ' ')"
+fi
+
+# --- 6. Déploiement automatique (uniquement sur le serveur) ---------------
+# /usr/local/sbin/opt-deploy est une COPIE de scripts/opt-deploy.sh : après une mise à jour de
+# opt, elle doit être réinstallée (scripts/deploy-install.sh), sinon l'ancienne version tourne.
+section "déploiement automatique"
+if [[ "$(uname -s)" != "Linux" ]] || ! id gh-deploy > /dev/null 2>&1; then
+  caution "non installé sur cette machine (sur le serveur : scripts/deploy-install.sh)"
+elif [[ ! -f /usr/local/sbin/opt-deploy ]]; then
+  fail "/usr/local/sbin/opt-deploy absent : lancer scripts/deploy-install.sh"
+elif sed "s|@OPT_ROOT@|$OPT_ROOT|" "$OPT_ROOT/scripts/opt-deploy.sh" | cmp -s - /usr/local/sbin/opt-deploy; then
+  pass "/usr/local/sbin/opt-deploy à jour"
+else
+  fail "/usr/local/sbin/opt-deploy diffère de scripts/opt-deploy.sh : relancer scripts/deploy-install.sh"
+fi
+if [[ -r /etc/sudoers.d/opt-deploy ]]; then
+  while IFS= read -r unit; do
+    name="$(basename "$unit")"
+    grep -q "NOPASSWD: /usr/local/sbin/opt-deploy $name\$" /etc/sudoers.d/opt-deploy \
+      || caution "$name : pas de règle sudo de déploiement (relancer scripts/deploy-install.sh)"
+  done < <(list_apps)
 fi
 
 echo

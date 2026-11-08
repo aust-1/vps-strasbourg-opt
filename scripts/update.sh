@@ -11,7 +11,8 @@ usage() {
 Usage : scripts/update.sh [--deploy] [--no-routes] [--force] [--dry-run] [-h]
 
 Enchaîne : contrôle de l'arbre git -> git pull --ff-only -> git submodule sync/update
--> résumé des commits reçus par chaque sous-module -> fix-perms -> routes-sync.
+-> résumé des commits reçus par chaque sous-module -> fix-perms -> routes-sync
+-> réinstallation de /usr/local/sbin/opt-deploy (si le déploiement automatique est installé).
 Ne redéploie AUCUNE app sans --deploy (sinon il indique quoi lancer).
 
 Options :
@@ -126,6 +127,11 @@ main() {
   "$OPT_ROOT/scripts/fix-perms.sh" ${dry[@]+"${dry[@]}"}
   if [[ "$routes" == "1" ]]; then
     "$OPT_ROOT/scripts/routes-sync.sh" ${dry[@]+"${dry[@]}"}
+  fi
+  # opt-deploy est une copie hors dépôt : on la réaligne sur scripts/opt-deploy.sh, et le
+  # sudoers sur la liste des apps (idempotent, ne touche pas aux clés).
+  if id gh-deploy > /dev/null 2>&1; then
+    "$OPT_ROOT/scripts/deploy-install.sh" ${dry[@]+"${dry[@]}"}
   fi
 
   if [[ ${#changed[@]} -eq 0 ]]; then
