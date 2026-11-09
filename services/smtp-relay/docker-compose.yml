@@ -1,0 +1,52 @@
+# Relais SMTP interne (image tierce, sans dépôt propre : versionné dans /opt).
+#
+# Postfix en relais pur : il n'envoie rien lui-même vers Internet (pas de port 25 sortant, pas
+# de réputation d'IP à gérer) et transmet tout à Resend (offre gratuite), qui signe en DKIM
+# pour le domaine vérifié. Les services du VPS écrivent à smtp-relay:587, sans authentification :
+# aucun port n'est publié, seul le réseau proxy y accède.
+#
+# Il refuse tout expéditeur hors de ALLOWED_SENDER_DOMAINS (un service compromis ne peut pas
+# envoyer au nom d'un autre domaine) et ne parle à Resend qu'en TLS (identifiants jamais en clair).
+# Mise en route et DNS : docs/runbook.md, section « Envoi d'emails ».
+name: smtp-relay
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
+services:
+  postfix:
+    image: boky/postfix:5.2.1-alpine # version figée ; ne pas suivre « latest »
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      RELAYHOST: ${RELAYHOST:-[smtp.resend.com]:587}
+      RELAYHOST_USERNAME: ${RELAYHOST_USERNAME:-resend}
+      RELAYHOST_PASSWORD: ${RELAYHOST_PASSWORD:?manquant dans .env}
+      ALLOWED_SENDER_DOMAINS: ${ALLOWED_SENDER_DOMAINS:-eliott-roussille.fr}
+      POSTFIX_myhostname: ${POSTFIX_MYHOSTNAME:-smtp-relay.eliott-roussille.fr}
+      # TLS obligatoire vers le relais : jamais d'identifiants sur une connexion en clair.
+      POSTFIX_smtp_tls_security_level: ${RELAY_TLS_LEVEL:-encrypt}
+      # Limite de Resend (40 Mo, pièces jointes comprises) : refus immédiat plutôt qu'un mail
+      # bloqué indéfiniment dans la file.
+      POSTFIX_message_size_limit: "41943040"
+    volumes:
+      # File d'attente : un mail en attente (Resend injoignable) survit à un redémarrage.
+      - spool:/var/spool/postfix
+    networks:
+      proxy:
+        aliases:
+          - smtp-relay # adresse SMTP des autres services : smtp-relay:587 ; unique sur le réseau
+    # Healthcheck fourni par l'image (/scripts/healthcheck.sh) : attendu par app-deploy.sh.
+    logging: *logging
+
+networks:
+  proxy:
+    external: true
+    name: ${PROXY_NETWORK:-proxy}
+
+volumes:
+  spool:
