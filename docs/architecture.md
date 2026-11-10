@@ -27,6 +27,25 @@ internes : ClickHouse, Postgres et Redis restent sur son réseau `default`, seul
 (`/api/*`, qui reçoit aussi les événements des sites suivis) et le tableau de bord rejoignent
 `proxy`.
 
+`services/smtp-relay` est le seul service **sans route publique** (ni `Caddyfile`, ni port
+publié : `check.sh` et `routes-sync.sh` le signalent, c'est voulu). Il rejoint `proxy` pour être
+joignable des autres services en `smtp-relay:587`, sur le réseau Docker, et transmet tout à
+Resend :
+
+```plaintext
+ service (uptime-kuma…) ── SMTP + compte du service ──▶ smtp-relay (Postfix)
+                           réseau proxy, sans TLS        │ expéditeur @eliott-roussille.fr
+                                                         │ obligatoire
+                                                         ▼
+                                        smtp.resend.com:587 (TLS vérifié, clé API)
+                                                         │ signe en DKIM
+                                                         ▼
+                                                 boîte du destinataire
+```
+
+Être sur le réseau `proxy` ne suffit pas pour envoyer : chaque service a son propre compte. Une
+app web compromise ne peut donc pas se servir du relais pour envoyer au nom du domaine.
+
 ## Réseaux Docker
 
 Un seul réseau externe, **`proxy`** (nom configurable par la variable `PROXY_NETWORK`, créé par

@@ -117,7 +117,10 @@ scripts/app-deploy.sh <nom>
 git add services/<nom> && git commit -m "feat(services): ajoute <nom>"
 ```
 
-`services/uptime-kuma` est un exemple à suivre directement.
+`services/uptime-kuma` est un exemple à suivre directement. Un service purement interne, sans
+route publique, n'a pas de `Caddyfile` : `scripts/check.sh` le signale par une ATTENTION, ce
+qui est normal. Il rejoint quand même `proxy`, avec un alias unique, pour être joignable des
+autres services (exemple : `services/smtp-relay`).
 
 ## Vérifier avant de pousser
 

@@ -9,7 +9,7 @@ passe par un script dédié dans `scripts/`, jamais par une commande tapée à l
 ```plaintext
 /opt
 ├── proxy/              reverse proxy Caddy partagé (seul service sur les ports 80/443)
-├── services/           services sans dépôt propre (uptime-kuma, rybbit)
+├── services/           services sans dépôt propre (uptime-kuma, rybbit, smtp-relay)
 ├── apps/                sous-modules git : chaque app est le code d'un dépôt tiers
 ├── scripts/             un script par action, plus scripts/lib/ (bibliothèque commune)
 ├── legacy/              anciens fichiers Traefik, conservés pour le retour arrière
@@ -66,6 +66,7 @@ Tous dans `scripts/`, tous avec `-h`/`--help`, tous idempotents, la plupart avec
 | `status.sh`                    | État d'ensemble (dépôt, réseau, proxy, chaque unité)                  |
 | `backup.sh` / `restore.sh`     | Sauvegarde/restauration des volumes Docker et des `.env`              |
 | `check.sh`                     | Contrôle de conformité complet, sans rien modifier                    |
+| `mail-test.sh`                 | Envoie un email de test par le relais SMTP et affiche son statut      |
 | `migrate-traefik-to-caddy.sh`  | Bascule depuis une ancienne installation Traefik                      |
 
 ## Rigueur
