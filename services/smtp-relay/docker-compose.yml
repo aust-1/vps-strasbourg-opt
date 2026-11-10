@@ -2,11 +2,16 @@
 #
 # Postfix en relais pur : il n'envoie rien lui-même vers Internet (pas de port 25 sortant, pas
 # de réputation d'IP à gérer) et transmet tout à Resend (offre gratuite), qui signe en DKIM
-# pour le domaine vérifié. Les services du VPS écrivent à smtp-relay:587, sans authentification :
-# aucun port n'est publié, seul le réseau proxy y accède.
+# pour le domaine vérifié. Aucun port n'est publié : les services du VPS le joignent sur
+# smtp-relay:587 par le réseau proxy.
 #
-# Il refuse tout expéditeur hors de ALLOWED_SENDER_DOMAINS (un service compromis ne peut pas
-# envoyer au nom d'un autre domaine) et ne parle à Resend qu'en TLS (identifiants jamais en clair).
+# Trois verrous, testés :
+#  - authentification obligatoire, un identifiant par service (SMTPD_SASL_USERS) : être sur le
+#    réseau proxy ne suffit pas pour envoyer (une app web compromise ne devient pas un relais) ;
+#  - expéditeur limité à ALLOWED_SENDER_DOMAINS, même authentifié ;
+#  - TLS vérifié vers Resend (chaîne de certificats et nom d'hôte) : la clé API ne part jamais
+#    en clair ni vers un serveur usurpé.
+# La connexion service → relais reste en clair : elle ne quitte pas le pont Docker de l'hôte.
 # Mise en route et DNS : docs/runbook.md, section « Envoi d'emails ».
 name: smtp-relay
 
@@ -26,10 +31,20 @@ services:
       RELAYHOST: ${RELAYHOST:-[smtp.resend.com]:587}
       RELAYHOST_USERNAME: ${RELAYHOST_USERNAME:-resend}
       RELAYHOST_PASSWORD: ${RELAYHOST_PASSWORD:?manquant dans .env}
+      # Comptes des services clients : « nom@domaine:motdepasse », séparés par des virgules.
+      SMTPD_SASL_USERS: ${SMTPD_SASL_USERS:?manquant dans .env}
       ALLOWED_SENDER_DOMAINS: ${ALLOWED_SENDER_DOMAINS:-eliott-roussille.fr}
-      POSTFIX_myhostname: ${POSTFIX_MYHOSTNAME:-smtp-relay.eliott-roussille.fr}
-      # TLS obligatoire vers le relais : jamais d'identifiants sur une connexion en clair.
-      POSTFIX_smtp_tls_security_level: ${RELAY_TLS_LEVEL:-encrypt}
+      POSTFIX_myhostname: smtp-relay.eliott-roussille.fr
+      # Seul le conteneur lui-même (healthcheck) est dispensé d'authentification : l'image
+      # autorise par défaut tous les réseaux privés, donc tout le réseau proxy.
+      POSTFIX_mynetworks: 127.0.0.0/8
+      # L'image n'applique le filtre d'expéditeur qu'aux clients non authentifiés : on l'impose
+      # à tous (un compte authentifié ne peut pas écrire au nom d'un autre domaine).
+      POSTFIX_smtpd_sender_restrictions: check_sender_access lmdb:/etc/postfix/allowed_senders, reject
+      # TLS obligatoire ET vérifié vers le relais en amont (CA système, nom = smtp.resend.com).
+      # Pas de variable pour l'assouplir : « encrypt » ne vérifie pas le certificat.
+      POSTFIX_smtp_tls_security_level: secure
+      POSTFIX_smtp_tls_mandatory_protocols: ">=TLSv1.2"
       # Limite de Resend (40 Mo, pièces jointes comprises) : refus immédiat plutôt qu'un mail
       # bloqué indéfiniment dans la file.
       POSTFIX_message_size_limit: "41943040"
