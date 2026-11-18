@@ -102,8 +102,17 @@ fonctionnent avec les nouveaux secrets) :
 
 ```bash
 rm -rf /opt.old
-rm -rf legacy/                      # dans /opt : plus besoin de l'ancien Traefik
-git add legacy && git commit -m "chore: retire legacy/ après validation de la migration Caddy"
 ```
 
-Ne pas se précipiter : `/opt.old` et `legacy/` sont le filet de sécurité tant qu'ils existent.
+Ne pas se précipiter : `/opt.old` est le filet de sécurité tant qu'il existe.
+
+**Fait** pour le dossier `legacy/` du dépôt (anciens fichiers Traefik) : il a été retiré par le
+commit `40a97fa` (« chore: retire legacy/ après validation de la migration Caddy »), une fois la
+migration validée. Le dépôt ne contient donc plus rien de Traefik, et
+`scripts/migrate-traefik-to-caddy.sh --rollback` n'est utilisable que tant que `/opt.old`
+existe. Pour retrouver ces fichiers malgré tout, passer par l'historique git :
+
+```bash
+git show --stat 40a97fa                  # liste des fichiers retirés
+git restore --source=40a97fa^ -- legacy  # les remet dans l'arbre de travail (sans commit)
+```
