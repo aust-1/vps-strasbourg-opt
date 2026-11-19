@@ -1,0 +1,115 @@
+# Contrôles automatiques : scripts (shellcheck, shfmt), Caddyfile (caddy validate) et composes
+# (docker compose config). Une erreur doit apparaître ici, pas au scripts/update.sh du serveur.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SHELLCHECK_VERSION: v0.11.0
+  SHELLCHECK_SHA256: 8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198
+  SHFMT_VERSION: v3.14.1
+  SHFMT_SHA256: 76e77641faa025814b77f153b29796b8e6fa2fca03e0c76a691608b86c7ea7bf
+
+jobs:
+  shell:
+    name: Scripts (shellcheck, shfmt)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Installer shellcheck et shfmt (versions et sommes figées)
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          cd "$RUNNER_TEMP"
+          curl -fsSL -o shellcheck.tar.xz \
+            "https://github.com/koalaman/shellcheck/releases/download/$SHELLCHECK_VERSION/shellcheck-$SHELLCHECK_VERSION.linux.x86_64.tar.xz"
+          echo "$SHELLCHECK_SHA256  shellcheck.tar.xz" | sha256sum -c -
+          tar xJf shellcheck.tar.xz
+          install -m 755 "shellcheck-$SHELLCHECK_VERSION/shellcheck" bin/shellcheck
+          curl -fsSL -o shfmt \
+            "https://github.com/mvdan/sh/releases/download/$SHFMT_VERSION/shfmt_${SHFMT_VERSION}_linux_amd64"
+          echo "$SHFMT_SHA256  shfmt" | sha256sum -c -
+          install -m 755 shfmt bin/shfmt
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: shellcheck
+        # Même niveau que scripts/check.sh ; -x suit les « source » de scripts/lib/.
+        run: |
+          shopt -s globstar nullglob
+          shellcheck --version
+          shellcheck -x -P SCRIPTDIR -S warning scripts/**/*.sh tests/*.sh
+
+      - name: shfmt (mise en forme, options dans .editorconfig)
+        run: shfmt -d scripts tests
+
+  caddy:
+    name: Caddyfile (caddy validate)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Même assemblage que scripts/routes-sync.sh (services/<nom>/Caddyfile -> sites/<nom>.caddy),
+      # validé avec l'image Caddy du compose du proxy : la même version que sur le serveur. Les
+      # Caddyfile des apps sont validés par la CI de leur propre dépôt et par routes-sync.sh.
+      - name: caddy validate
+        run: |
+          image="$(docker compose -f proxy/docker-compose.yml config --images | head -n 1)"
+          echo "image : $image"
+          sites="$RUNNER_TEMP/sites"
+          mkdir -p "$sites"
+          for f in services/*/Caddyfile; do
+            name="$(basename "$(dirname "$f")")"
+            cp "$f" "$sites/$name.caddy"
+            echo "route : $name"
+          done
+          docker run --rm \
+            -v "$PWD/proxy/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            -v "$sites:/etc/caddy/sites:ro" \
+            "$image" caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+
+  compose:
+    name: Composes (docker compose config)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Variables tirées du .env.example de chaque unité ; une valeur vide (secret à compléter)
+      # reçoit une valeur factice, sinon les « ${VAR:?} » des composes échoueraient.
+      - name: docker compose config -q
+        run: |
+          docker compose version
+          status=0
+          for compose in proxy/docker-compose.yml services/*/docker-compose.yml; do
+            dir="$(dirname "$compose")"
+            args=()
+            if [[ -f "$dir/.env.example" ]]; then
+              env_file="$RUNNER_TEMP/$(basename "$dir").env"
+              sed -E 's/^([A-Za-z_][A-Za-z0-9_]*)=$/\1=valeur-factice-ci/' "$dir/.env.example" > "$env_file"
+              args=(--env-file "$env_file")
+            fi
+            if (cd "$dir" && docker compose "${args[@]}" config -q); then
+              echo "OK     $compose"
+            else
+              echo "ÉCHEC  $compose"
+              status=1
+            fi
+          done
+          exit "$status"
