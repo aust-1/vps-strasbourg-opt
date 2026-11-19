@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Contrôle de conformité de /opt, sans rien modifier. À lancer avant tout commit/déploiement.
 # Vérifie : scripts (forme, LF, bit exécutable, shellcheck), composes, Caddyfile, permissions,
-# déploiement automatique (sur le serveur),
+# déploiement automatique (sur le serveur), fraîcheur de la copie des sauvegardes hors du VPS,
 # cohérence des sous-modules, et le contrat de chaque app/service (nom de projet, réseau,
 # ports, alias uniques, cibles des reverse_proxy).
 set -euo pipefail
@@ -293,6 +293,33 @@ if [[ -r /etc/sudoers.d/opt-deploy ]]; then
     grep -q "NOPASSWD: /usr/local/sbin/opt-deploy $name\$" /etc/sudoers.d/opt-deploy \
       || caution "$name : pas de règle sudo de déploiement (relancer scripts/deploy-install.sh)"
   done < <(list_apps)
+fi
+
+# --- 7. Copie des sauvegardes hors du VPS -----------------------------------
+section "copie hors du VPS"
+if ! offsite_configured; then
+  caution "non configurée ($OFFSITE_ENV absent) : les sauvegardes ne quittent pas le VPS (docs/runbook.md)"
+elif [[ ! -r "$OFFSITE_ENV" ]]; then
+  caution "$OFFSITE_ENV illisible : relancer check.sh en root pour contrôler la copie distante"
+elif ! command -v restic > /dev/null 2>&1; then
+  fail "restic introuvable alors que $OFFSITE_ENV existe (apt install restic)"
+elif ! snaps="$(offsite_restic snapshots --json --tag "$OFFSITE_TAG" 2>&1)"; then
+  fail "dépôt restic distant injoignable ou illisible : $(tail -n 1 <<< "$snaps")"
+else
+  # Les instantanés sont listés du plus ancien au plus récent ; on retient le plus récent.
+  last="$(grep -oE '"time":"[^"]+"' <<< "$snaps" | cut -d'"' -f4 | sort | tail -n 1 || true)"
+  if [[ -z "$last" ]]; then
+    fail "aucune copie distante (scripts/backup.sh)"
+  elif ! last_s="$(date -d "$last" +%s 2> /dev/null)"; then
+    fail "date de la dernière copie distante illisible : $last"
+  else
+    age_h=$((($(date +%s) - last_s) / 3600))
+    if [[ "$age_h" -gt 48 ]]; then
+      fail "dernière copie distante il y a $age_h h (plus de 48 h) : $last"
+    else
+      pass "dernière copie distante il y a $age_h h ($last)"
+    fi
+  fi
 fi
 
 echo

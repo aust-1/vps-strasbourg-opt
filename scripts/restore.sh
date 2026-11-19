@@ -9,6 +9,8 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 usage() {
   cat << 'EOF'
 Usage : scripts/restore.sh [--only VOLUME]... [--with-env] [--yes] [--dry-run] <archive.tar.gz>
+        scripts/restore.sh [options] --from-remote <instantané|latest>
+        scripts/restore.sh --list-remote
 
 Vérifie la somme de contrôle (<archive>.sha256), affiche le manifeste, puis remplace le contenu
 de chaque volume par celui de l'archive. Refuse si un conteneur utilise encore le volume
@@ -17,6 +19,10 @@ de chaque volume par celui de l'archive. Refuse si un conteneur utilise encore l
 Options :
   --only V      ne restaure que ce volume (répétable) ; sans option, tous ceux de l'archive
   --with-env    restaure aussi les .env (l'existant est conservé en .env.bak-<horodatage>)
+  --from-remote S  récupère l'archive de l'instantané S (« latest » : le plus récent) de la copie
+                hors du VPS (restic, /etc/vps-opt/offsite.env) dans /var/backups/vps-opt/distant-*,
+                puis la restaure comme une archive locale (téléchargée même en --dry-run)
+  --list-remote liste les instantanés de la copie hors du VPS, puis s'arrête
   --yes         ne demande pas de confirmation
   --dry-run     affiche le plan sans rien modifier
   -h, --help    cette aide
@@ -30,12 +36,24 @@ readonly HELPER_IMAGE="alpine:3"
 WITH_ENV=0
 declare -a ONLY=()
 ARCHIVE=""
+FROM_REMOTE=""
+LIST_REMOTE=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --only)
       [[ $# -ge 2 ]] || usage_error "--only attend un nom de volume"
       ONLY+=("$2")
       shift 2
+      ;;
+    --from-remote)
+      [[ $# -ge 2 && "$2" =~ ^(latest|[0-9a-f]{8,64})$ ]] \
+        || usage_error "--from-remote attend un identifiant d'instantané ou « latest »"
+      FROM_REMOTE="$2"
+      shift 2
+      ;;
+    --list-remote)
+      LIST_REMOTE=1
+      shift
       ;;
     --with-env)
       WITH_ENV=1
@@ -61,12 +79,36 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
-[[ -n "$ARCHIVE" ]] || usage_error "archive manquante"
-[[ -f "$ARCHIVE" ]] || die "archive introuvable : $ARCHIVE" 2
+if [[ -n "$FROM_REMOTE" || "$LIST_REMOTE" == "1" ]]; then
+  [[ -z "$ARCHIVE" ]] || usage_error "une archive locale OU --from-remote / --list-remote"
+else
+  [[ -n "$ARCHIVE" ]] || usage_error "archive manquante"
+  [[ -f "$ARCHIVE" ]] || die "archive introuvable : $ARCHIVE" 2
+fi
 
 require_docker
 require_cmd tar sha256sum
 umask 077
+
+# Copie hors du VPS : liste, ou récupération de l'archive (et de son .sha256) d'un instantané.
+if [[ "$LIST_REMOTE" == "1" ]]; then
+  offsite_configured || die "$OFFSITE_ENV absent : copie hors du VPS non configurée" 3
+  offsite_restic snapshots --tag "$OFFSITE_TAG"
+  exit 0
+fi
+if [[ -n "$FROM_REMOTE" ]]; then
+  offsite_configured || die "$OFFSITE_ENV absent : copie hors du VPS non configurée (docs/runbook.md)" 3
+  DOWNLOAD="${BACKUP_DIR:-$BACKUP_ROOT_DEFAULT}/distant-$(stamp)"
+  mkdir -p "$DOWNLOAD"
+  chmod 700 "$DOWNLOAD" "$(dirname "$DOWNLOAD")"
+  log "récupération de l'instantané $FROM_REMOTE dans $DOWNLOAD"
+  offsite_restic restore "$FROM_REMOTE" --tag "$OFFSITE_TAG" --target "$DOWNLOAD" \
+    || die "récupération de la copie distante en échec"
+  mapfile -t FOUND < <(find "$DOWNLOAD" -type f -name 'opt-*.tar.gz')
+  [[ ${#FOUND[@]} -eq 1 ]] || die "instantané inattendu : ${#FOUND[@]} archive(s) opt-*.tar.gz dans $DOWNLOAD"
+  ARCHIVE="${FOUND[0]}"
+  log "archive récupérée : $ARCHIVE (à supprimer une fois la restauration vérifiée)"
+fi
 
 ARCHIVE="$(cd "$(dirname "$ARCHIVE")" && pwd -P)/$(basename "$ARCHIVE")"
 if [[ -f "$ARCHIVE.sha256" ]]; then
