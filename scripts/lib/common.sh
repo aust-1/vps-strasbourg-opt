@@ -139,6 +139,50 @@ list_apps() {
   done
 }
 
+# --- Copie hors du VPS (restic) ----------------------------------------------
+
+# Fichier hors dépôt, root:root 600 : dépôt restic, mot de passe, accès au stockage distant
+# (variables RESTIC_* et celles du stockage, ex. AWS_*). Absent = aucune copie distante : il n'y a
+# pas de destination par défaut. Modèle et mise en route : docs/runbook.md.
+OFFSITE_ENV="${OFFSITE_ENV:-/etc/vps-opt/offsite.env}"
+readonly OFFSITE_TAG="vps-opt"
+
+offsite_configured() { [[ -e "$OFFSITE_ENV" ]]; }
+
+# offsite_value <NOM> : valeur de NOM dans $OFFSITE_ENV (lignes « NOM=valeur »), vide sinon.
+offsite_value() {
+  local key value
+  [[ -r "$OFFSITE_ENV" ]] || return 0
+  while IFS='=' read -r key value; do
+    [[ "$key" == "$1" ]] && printf '%s\n' "$value" && return 0
+  done < "$OFFSITE_ENV"
+  return 0
+}
+
+# offsite_restic <arguments…> : lance restic avec la configuration de $OFFSITE_ENV, chargée dans
+# un sous-shell (les secrets ne restent pas dans l'environnement du script). Refuse un fichier
+# lisible par d'autres que son propriétaire, ou qui n'appartient ni à root ni à l'utilisateur.
+offsite_restic() {
+  require_cmd restic
+  [[ -r "$OFFSITE_ENV" ]] || die "$OFFSITE_ENV illisible (à lancer en root)" 3
+  local mode owner
+  mode="$(stat -c '%a' "$OFFSITE_ENV")"
+  owner="$(stat -c '%u' "$OFFSITE_ENV")"
+  [[ "$mode" =~ ^[46]00$ ]] || die "$OFFSITE_ENV est en $mode : 600 attendu (il contient des secrets)" 3
+  [[ "$owner" == 0 || "$owner" == "$(id -u)" ]] || die "$OFFSITE_ENV doit appartenir à root" 3
+  (
+    set -a
+    # shellcheck source=/dev/null
+    source "$OFFSITE_ENV"
+    set +a
+    [[ -n "${RESTIC_REPOSITORY:-}${RESTIC_REPOSITORY_FILE:-}" ]] \
+      || die "RESTIC_REPOSITORY manquant dans $OFFSITE_ENV" 3
+    [[ -n "${RESTIC_PASSWORD:-}${RESTIC_PASSWORD_FILE:-}${RESTIC_PASSWORD_COMMAND:-}" ]] \
+      || die "RESTIC_PASSWORD_FILE (ou RESTIC_PASSWORD) manquant dans $OFFSITE_ENV" 3
+    restic "$@"
+  )
+}
+
 # --- Divers ----------------------------------------------------------------
 
 # Refuse les arguments inconnus de façon uniforme.
