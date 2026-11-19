@@ -23,6 +23,13 @@ readonly PROXY_SITES_DIR="$PROXY_DIR/sites"
 readonly PROXY_COMPOSE="$PROXY_DIR/docker-compose.yml"
 readonly BACKUP_ROOT_DEFAULT="/var/backups/vps-opt"
 
+# Verrou du serveur, partagé par opt-deploy (chemin inscrit à l'installation, voir
+# render_opt_deploy), update.sh, backup.sh, restore.sh, app-deploy.sh, app-bump.sh et
+# routes-sync.sh : une seule opération à la fois touche aux apps, au dépôt et au proxy.
+# Surchargeable pour les tests uniquement.
+OPT_LOCK="${OPT_LOCK:-/run/lock/opt-deploy.lock}"
+OPT_LOCK_TIMEOUT="${OPT_LOCK_TIMEOUT:-900}"
+
 # Nom du réseau Docker partagé entre le proxy et les services exposés.
 PROXY_NETWORK="${PROXY_NETWORK:-proxy}"
 
@@ -96,6 +103,43 @@ run() {
   else
     "$@"
   fi
+}
+
+# --- Verrou -----------------------------------------------------------------
+
+# acquire_lock : prend le verrou exclusif du serveur sur le descripteur 9, pour toute la durée du
+# script (libéré à sa sortie). Attend au plus OPT_LOCK_TIMEOUT secondes, puis échoue (code 1).
+# Un script lancé par un autre qui détient déjà le verrou (opt-deploy -> app-deploy.sh,
+# update.sh -> routes-sync.sh…) ne se bloque pas lui-même : il hérite du descripteur 9 ouvert
+# sur le fichier du verrou, et flock sur ce descripteur hérité réussit aussitôt.
+# Rien n'est verrouillé en --dry-run (rien n'est modifié).
+acquire_lock() {
+  [[ "$DRY_RUN" == "1" ]] && return 0
+  require_cmd flock
+  local target
+  target="$(readlink -f "$OPT_LOCK" 2> /dev/null || echo "$OPT_LOCK")"
+  if [[ "$(readlink /proc/self/fd/9 2> /dev/null)" == "$target" ]] && flock -n 9; then
+    return 0
+  fi
+  # Fichier existant : ouvert sans O_CREAT. Dans /run/lock (répertoire « sticky »),
+  # fs.protected_regular refuse même à root un O_CREAT sur le fichier d'un autre compte.
+  if [[ -e "$OPT_LOCK" ]]; then
+    exec 9< "$OPT_LOCK" || die "verrou illisible : $OPT_LOCK" 3
+  else
+    exec 9>> "$OPT_LOCK" || die "impossible de créer le verrou $OPT_LOCK (droits ?)" 3
+  fi
+  if ! flock -n 9; then
+    log "une autre opération (déploiement, mise à jour, sauvegarde…) est en cours : attente du verrou (${OPT_LOCK_TIMEOUT}s au plus)"
+    flock -w "$OPT_LOCK_TIMEOUT" 9 \
+      || die "verrou $OPT_LOCK toujours pris après ${OPT_LOCK_TIMEOUT}s : réessayer plus tard (qui le tient : fuser -v $OPT_LOCK)" 1
+    log "verrou obtenu"
+  fi
+}
+
+# render_opt_deploy : le modèle scripts/opt-deploy.sh avec le chemin du dépôt et du verrou, tel
+# qu'installé en /usr/local/sbin/opt-deploy (deploy-install.sh) et comparé (check.sh).
+render_opt_deploy() {
+  sed -e "s|@OPT_ROOT@|$OPT_ROOT|" -e "s|@OPT_LOCK@|$OPT_LOCK|" "$OPT_ROOT/scripts/opt-deploy.sh"
 }
 
 # confirm <question> : refuse (code 4) sans « oui », sauf --yes.
