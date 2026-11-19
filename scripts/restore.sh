@@ -26,7 +26,8 @@ Codes de sortie : 0 succès ; 1 erreur (archive corrompue…) ; 2 usage ; 3 pré
 EOF
 }
 
-readonly HELPER_IMAGE="alpine:3"
+# Version figée (la même que dans backup.sh) ; Dependabot ne lit pas les scripts : la monter à la main.
+readonly HELPER_IMAGE="alpine:3.24.4"
 WITH_ENV=0
 declare -a ONLY=()
 ARCHIVE=""

@@ -79,6 +79,37 @@ scripts/check.sh
 secret versionné, contrat de chaque app/service (alias en double, ports publiés, `docker.sock`,
 nom de projet, cible du `reverse_proxy`), validité de la configuration Caddy assemblée.
 
+## Monter la version d'une image
+
+Chaque image du proxy et des services est figée sur une version complète
+(`caddy:2.11.9-alpine`, `louislam/uptime-kuma:2.5.12`, `postgres:17.12`…) : un
+`docker compose pull` ne change jamais de version tout seul, et le commit de `/opt` dit
+exactement ce qui tourne. Dependabot (`.github/dependabot.yml`) ouvre chaque semaine une pull
+request par nouvelle version. Pour monter :
+
+1. Lire les notes de version (migrations, changements cassants), puis fusionner la pull request
+   de Dependabot, ou changer l'étiquette à la main dans le `docker-compose.yml` et la pousser.
+2. Sur le serveur :
+
+   ```bash
+   scripts/update.sh
+   scripts/app-deploy.sh <unité>     # proxy, uptime-kuma, rybbit…
+   ```
+
+3. Retour arrière : remettre l'ancienne étiquette (revert du commit), puis les deux mêmes
+   commandes.
+
+Cas particuliers :
+
+- **Postgres** (`services/rybbit`) : Dependabot ne propose que les mineures (`17.x`). Changer de
+  majeure exige un dump/restore.
+- **ClickHouse** et les images Rybbit suivent la version de Rybbit (voir « Statistiques de
+  visite ») : Dependabot ignore ClickHouse.
+- **`alpine`**, image auxiliaire de `scripts/backup.sh` et `scripts/restore.sh` (`HELPER_IMAGE`) :
+  Dependabot ne lit pas les scripts. La monter à la main, la même dans les deux scripts.
+- Après une montée de Caddy, `scripts/routes-sync.sh` valide les routes avec la nouvelle image
+  (celle du compose du proxy).
+
 ## Statistiques de visite (Rybbit)
 
 Tableau de bord : <https://analytics.eliott-roussille.fr> (`services/rybbit`). Le DNS de ce

@@ -10,7 +10,7 @@ x-logging: &logging
 
 services:
   uptime-kuma:
-    image: louislam/uptime-kuma:2
+    image: louislam/uptime-kuma:2.5.12 # version figée ; ne pas suivre « latest » (montées : Dependabot)
     container_name: uptime-kuma
     restart: unless-stopped
     # Pas de no-new-privileges ici : les sondes ping reposent sur des capacités de fichier.
