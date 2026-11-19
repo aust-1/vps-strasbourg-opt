@@ -282,7 +282,7 @@ if [[ "$(uname -s)" != "Linux" ]] || ! id gh-deploy > /dev/null 2>&1; then
   caution "non installé sur cette machine (sur le serveur : scripts/deploy-install.sh)"
 elif [[ ! -f /usr/local/sbin/opt-deploy ]]; then
   fail "/usr/local/sbin/opt-deploy absent : lancer scripts/deploy-install.sh"
-elif sed "s|@OPT_ROOT@|$OPT_ROOT|" "$OPT_ROOT/scripts/opt-deploy.sh" | cmp -s - /usr/local/sbin/opt-deploy; then
+elif render_opt_deploy | cmp -s - /usr/local/sbin/opt-deploy; then
   pass "/usr/local/sbin/opt-deploy à jour"
 else
   fail "/usr/local/sbin/opt-deploy diffère de scripts/opt-deploy.sh : relancer scripts/deploy-install.sh"

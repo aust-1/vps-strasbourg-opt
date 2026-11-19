@@ -67,6 +67,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 require_docker
+# --check et --validate-only ne modifient rien : pas de verrou (check.sh les lance à tout moment).
+if [[ "$CHECK" == "0" && "$VALIDATE_ONLY" == "0" ]]; then acquire_lock; fi
 [[ -f "$PROXY_COMPOSE" ]] || die "compose du proxy introuvable : $PROXY_COMPOSE" 3
 
 STAGE="$(mktemp -d)"

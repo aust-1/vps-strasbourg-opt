@@ -20,7 +20,48 @@ scripts/update.sh --deploy        # + redéploie les apps dont le sous-module a 
 ```
 
 Refuse si l'arbre git n'est pas propre ou si la branche n'est pas `main` (`--force` pour passer
-outre — le `pull` reste `--ff-only` dans tous les cas : jamais de fusion ni de rebase surprise).
+outre). Jamais de fusion ni de rebase : `git fetch`, puis avance rapide sur `origin/main`.
+
+Chaque déploiement automatique crée dans `/opt` un commit local, jamais poussé
+(`chore(apps): <app> suit <commit> (déploiement)`, par `scripts/app-bump.sh`) ;
+`scripts/status.sh` affiche leur nombre. Quand `origin/main` a avancé de son côté, `update.sh`
+réconcilie seul, à condition que les commits locaux ne déplacent que des pointeurs `apps/*` :
+
+- l'historique local est refait sur `origin/main` (l'ancien HEAD reste dans
+  `refs/opt-update/avant-<horodatage>` : `git for-each-ref refs/opt-update`) ;
+- pour chaque app déplacée localement, le pointeur garde le plus récent des deux commits, celui
+  déployé ou celui d'`origin/main` ; si c'est le déployé, un commit
+  `chore(apps): <app> suit <commit> (déploiement)` le réenregistre par-dessus `origin/main`.
+
+Sinon il s'arrête **avant toute modification**, code 4, dans deux cas :
+
+1. **Un commit local touche autre chose qu'un pointeur `apps/*`** (correctif fait à la main sur
+   le serveur). Le reporter dans le dépôt depuis un poste, puis réaligner le serveur :
+
+   ```bash
+   git log --oneline origin/main..main                  # commits locaux
+   git format-patch origin/main..main -o /root/opt-patches   # les garder (git am sur le poste)
+   git branch sauvegarde-$(date +%Y%m%d) main           # filet de sécurité
+   git reset --keep origin/main
+   scripts/update.sh
+   ```
+
+2. **Le commit déployé d'une app et celui d'`origin/main` n'ont pas d'historique commun**
+   (historique de l'app réécrit, `push --force`). Repartir d'`origin/main`, puis redéployer
+   l'app sur le dernier commit de sa branche `main` :
+
+   ```bash
+   git branch sauvegarde-$(date +%Y%m%d) main
+   git reset --keep origin/main
+   scripts/update.sh
+   sudo opt-deploy <app>
+   ```
+
+`update.sh`, `backup.sh`, `restore.sh`, `app-deploy.sh`, `app-bump.sh`, `routes-sync.sh` (hors
+`--check` et `--validate-only`) et `opt-deploy` partagent un verrou (`/run/lock/opt-deploy.lock`) :
+une seule opération à la fois, les autres attendent jusqu'à 15 min (« attente du verrou »), puis
+abandonnent (code 1). Un script lancé par un autre qui détient le verrou ne l'attend pas. Voir
+qui le tient : `fuser -v /run/lock/opt-deploy.lock`.
 
 ## Déployer une app
 

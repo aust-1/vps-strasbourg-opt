@@ -74,9 +74,9 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# render_wrapper : le modèle avec le vrai chemin du dépôt opt.
+# render_wrapper : le modèle avec le vrai chemin du dépôt opt et du verrou.
 render_wrapper() {
-  sed "s|@OPT_ROOT@|$OPT_ROOT|" "$TEMPLATE"
+  render_opt_deploy
 }
 
 # key_line <app> <clé> : ligne authorized_keys bridée à « opt-deploy <app> ».
