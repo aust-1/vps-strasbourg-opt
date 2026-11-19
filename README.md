@@ -115,19 +115,6 @@ bibliothèque commune (`common.sh`) et les règles de permissions (`perms.sh`).
 | `mail-test.sh`                 | Envoie un email de test par le relais SMTP et affiche son statut      |
 | `migrate-traefik-to-caddy.sh`  | Bascule depuis une ancienne installation Traefik (et `--rollback`)    |
 
-## Tests
-
-`tests/deploy-e2e.sh` teste de bout en bout le déploiement automatique (`deploy-install.sh`,
-`opt-deploy`, clés SSH bridées, refus des noms dangereux et des modifications locales,
-révocation) dans un conteneur Ubuntu jetable, avec sshd, sudo et git réels et Docker remplacé
-par des stubs. Aucun effet hors du conteneur. Depuis la racine du dépôt :
-
-```bash
-docker run --rm -v "$PWD":/src:ro ubuntu:25.04 bash /src/tests/deploy-e2e.sh
-```
-
-Sous Git Bash, préfixer par `MSYS_NO_PATHCONV=1`. Dernière ligne attendue : « TOUT EST VERT ».
-
 ## Intégration continue
 
 `.github/workflows/ci.yml` tourne à chaque push et pull request, avec un jeton en lecture seule :
@@ -140,6 +127,19 @@ Sous Git Bash, préfixer par `MSYS_NO_PATHCONV=1`. Dernière ligne attendue : «
   son `.env.example`.
 
 Avant de pousser, en local : `shfmt -d scripts tests` et `scripts/check.sh`.
+
+## Tests
+
+`tests/deploy-e2e.sh` teste de bout en bout le déploiement automatique (`deploy-install.sh`,
+`opt-deploy`, clés SSH bridées, refus des noms dangereux et des modifications locales,
+révocation) dans un conteneur Ubuntu jetable, avec sshd, sudo et git réels et Docker remplacé
+par des stubs. Aucun effet hors du conteneur. Depuis la racine du dépôt :
+
+```bash
+docker run --rm -v "$PWD":/src:ro ubuntu:25.04 bash /src/tests/deploy-e2e.sh
+```
+
+Sous Git Bash, préfixer par `MSYS_NO_PATHCONV=1`. Dernière ligne attendue : « TOUT EST VERT ».
 
 ## Rigueur
 
