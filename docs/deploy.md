@@ -45,15 +45,63 @@ scripts/status.sh                   # tout doit être vert
 Ouvrir chacun des domaines dans un navigateur : le certificat est émis par Caddy à la première
 requête, ce qui peut prendre quelques secondes.
 
-## 5. Sauvegardes
+## 5. Sauvegardes et supervision
+
+### Sondes « push » dans Uptime Kuma
+
+Une sauvegarde ratée ou un conteneur malsain doit déclencher une alerte, pas seulement une ligne
+dans un journal. `scripts/backup.sh` et `scripts/status.sh` préviennent chacun une sonde « push »
+d'Uptime Kuma : « up » quand tout va bien, « down » avec la raison sinon, et Uptime Kuma alerte
+aussi quand la sonde ne reçoit plus rien (cron arrêté, serveur figé). L'appel part de l'hôte
+(`curl`) vers l'URL publique d'Uptime Kuma : il ne dépend pas du réseau des conteneurs.
+
+Dans Uptime Kuma (<https://uptime.eliott-roussille.fr>), **Ajouter une sonde**, deux fois :
+
+| Réglage                         | Sauvegarde nocturne              | État du serveur (`status.sh`)    |
+| ------------------------------- | -------------------------------- | -------------------------------- |
+| Type de sonde                   | Push                             | Push                             |
+| Nom                             | `VPS : sauvegarde nocturne`      | `VPS : status.sh`                |
+| Intervalle de pulsation         | `90000` s (25 h : une par nuit, plus une heure de marge pour la durée de la sauvegarde) | `1200` s (20 min, pour un passage toutes les 15 min) |
+| Nouvelles tentatives            | `0`                              | `1` (une exécution manquée ne suffit pas à alerter) |
+| Notifications                   | l'email du relais SMTP (`docs/runbook.md`, « Envoi d'emails ») | idem |
+
+Enregistrer, puis copier l'**URL push** de chaque sonde (de la forme
+`https://uptime.eliott-roussille.fr/api/push/<jeton>?status=up&msg=OK&ping=`). Le jeton suffit à
+faire passer une sonde au vert : il reste hors du dépôt, dans un fichier lisible par root seul :
 
 ```bash
-crontab -e
+install -d -m 700 /etc/vps-opt
+install -m 600 /dev/null /etc/vps-opt/monitoring.env
+nano /etc/vps-opt/monitoring.env
+```
+
+```ini
+# Sondes push Uptime Kuma (URL copiées telles quelles ; la partie « ?status=… » est remplacée)
+BACKUP_PING_URL=https://uptime.eliott-roussille.fr/api/push/<jeton-sauvegarde>?status=up&msg=OK&ping=
+STATUS_PING_URL=https://uptime.eliott-roussille.fr/api/push/<jeton-status>?status=up&msg=OK&ping=
+```
+
+Sans ce fichier (ou avec une variable vide), les deux scripts tournent comme avant, sans sonde.
+`--ping-url <URL>` remplace la variable pour un essai à la main. Un envoi qui échoue n'est qu'un
+avertissement dans la sortie : il ne change pas le code de retour du script.
+
+### Cron
+
+```bash
+crontab -e      # en root
 ```
 
 ```cron
-30 2 * * *  cd /opt && scripts/backup.sh --stop >> /var/log/vps-opt-backup.log 2>&1
+30 2 * * *    cd /opt && scripts/backup.sh --stop >> /var/log/vps-opt-backup.log 2>&1
+*/15 * * * *  cd /opt && scripts/status.sh > /var/log/vps-opt-status.log 2>&1
 ```
+
+`status.sh` réécrit son journal à chaque passage (`>`) : `/var/log/vps-opt-status.log` montre
+toujours le dernier état. Vérifier une première fois à la main : `scripts/status.sh` puis
+`scripts/backup.sh --stop`, et les deux sondes doivent passer au vert dans Uptime Kuma.
+
+Limite : Uptime Kuma tourne sur le même VPS. Si le serveur entier tombe, il ne peut alerter
+personne ; seule une supervision extérieure (une sonde HTTP sur un service tiers) couvre ce cas.
 
 Chaque app avec des données externes garde sa propre sauvegarde en plus (ex.
 `apps/bourse-tracker/infra/backup.sh`, voir son propre `docs/DEPLOY.md`).

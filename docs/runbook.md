@@ -9,8 +9,10 @@ scripts/status.sh
 ```
 
 Une ligne par app/service : commit du sous-module, conteneurs sains/total, `.env` présent,
-route publiée et à jour. Code de sortie non nul dès qu'une ligne est anormale — utilisable en
-supervision (cron + alerte sur échec).
+route publiée et à jour. Code de sortie non nul dès qu'une ligne est anormale. Lancé par cron
+toutes les 15 min, il prévient une sonde push d'Uptime Kuma, tout comme la sauvegarde nocturne :
+mise en place dans `docs/deploy.md`, section 5. Dernier passage du cron :
+`cat /var/log/vps-opt-status.log`.
 
 ## Mettre à jour depuis le dépôt
 
