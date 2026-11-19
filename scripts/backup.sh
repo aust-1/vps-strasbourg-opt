@@ -67,7 +67,8 @@ require_docker
 require_cmd tar sha256sum
 umask 077
 
-readonly HELPER_IMAGE="alpine:3"
+# Version figée (la même que dans restore.sh) ; Dependabot ne lit pas les scripts : la monter à la main.
+readonly HELPER_IMAGE="alpine:3.24.4"
 STAMP="$(stamp)"
 ARCHIVE="$DEST/opt-$STAMP.tar.gz"
 WORK="$(mktemp -d)"

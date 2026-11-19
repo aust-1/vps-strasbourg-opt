@@ -28,7 +28,7 @@ Chaque app ou service :
 
 ### Proxy
 
-`proxy/` : Caddy (`caddy:2-alpine`), seul conteneur à publier les ports 80/443 (et 443/udp
+`proxy/` : Caddy (`caddy:2.11.9-alpine`), seul conteneur à publier les ports 80/443 (et 443/udp
 pour HTTP/3). Son `Caddyfile` ne contient aucun site : il importe `proxy/sites/*.caddy`,
 assemblé par `scripts/routes-sync.sh`. Les certificats Let's Encrypt vivent dans le volume
 `caddy_data` (à sauvegarder).
@@ -39,7 +39,7 @@ Services tiers sans dépôt propre, versionnés directement ici.
 
 | Service        | Rôle                                                                                         | Route                          |
 | -------------- | -------------------------------------------------------------------------------------------- | ------------------------------ |
-| `uptime-kuma`  | Supervision (image `louislam/uptime-kuma:2`)                                                 | `uptime.eliott-roussille.fr`   |
+| `uptime-kuma`  | Supervision (image `louislam/uptime-kuma:2.5.12`)                                            | `uptime.eliott-roussille.fr`   |
 | `rybbit`       | Statistiques de visite (backend, tableau de bord, ClickHouse, Postgres, Redis)               | `analytics.eliott-roussille.fr` |
 | `smtp-relay`   | Relais SMTP interne (Postfix) vers Resend, joignable en `smtp-relay:587` sur le réseau `proxy` | aucune (ni `Caddyfile`, ni port) |
 
