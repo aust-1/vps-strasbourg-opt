@@ -128,6 +128,19 @@ docker run --rm -v "$PWD":/src:ro ubuntu:25.04 bash /src/tests/deploy-e2e.sh
 
 Sous Git Bash, préfixer par `MSYS_NO_PATHCONV=1`. Dernière ligne attendue : « TOUT EST VERT ».
 
+## Intégration continue
+
+`.github/workflows/ci.yml` tourne à chaque push et pull request, avec un jeton en lecture seule :
+
+- `shellcheck -x -S warning` sur `scripts/**/*.sh` et `tests/*.sh`, et `shfmt -d` (options de
+  mise en forme dans `.editorconfig`, lues aussi par l'éditeur) ;
+- `caddy validate` de `proxy/Caddyfile` avec les `Caddyfile` des services, assemblés comme le fait
+  `scripts/routes-sync.sh`, avec l'image Caddy de `proxy/docker-compose.yml` ;
+- `docker compose config -q` de chaque compose du proxy et des services, avec les variables de
+  son `.env.example`.
+
+Avant de pousser, en local : `shfmt -d scripts tests` et `scripts/check.sh`.
+
 ## Rigueur
 
 - Aucun secret dans git : seuls les `.env.example` sont versionnés (`.gitignore` à la racine
