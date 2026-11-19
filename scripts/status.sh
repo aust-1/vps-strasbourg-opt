@@ -10,7 +10,8 @@ usage() {
   cat << 'EOF'
 Usage : scripts/status.sh [-h]
 
-Affiche le dépôt (commit, branche, arbre propre ?), le réseau proxy, l'état de Caddy, puis une
+Affiche le dépôt (commit, branche, arbre propre ?, commits locaux non poussés et retard sur la
+branche amont au dernier fetch), le réseau proxy, l'état de Caddy, puis une
 ligne par app/service : commit du sous-module, conteneurs sains/total, .env présent, route
 publiée et à jour.
 
@@ -64,7 +65,14 @@ if [[ -n "$(git status --porcelain)" ]]; then
   dirty="MODIFIÉ"
   problem
 fi
-log "dépôt : $(git rev-parse --short HEAD) sur $branch, arbre $dirty"
+# Commits locaux non poussés : normaux après un déploiement automatique (app-bump.sh), donc
+# signalés sans compter comme anomalie ; update.sh les réconcilie. Écart mesuré au dernier fetch.
+sync=""
+if upstream="$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2> /dev/null)"; then
+  read -r behind ahead < <(git rev-list --left-right --count "$upstream...HEAD")
+  sync=", $ahead commit(s) local(aux) non poussé(s), $behind en retard sur $upstream (dernier fetch)"
+fi
+log "dépôt : $(git rev-parse --short HEAD) sur $branch, arbre $dirty$sync"
 
 if docker network inspect "$PROXY_NETWORK" > /dev/null 2>&1; then
   log "réseau $PROXY_NETWORK : présent"

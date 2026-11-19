@@ -65,6 +65,7 @@ valid_name "$NAME" || usage_error "nom invalide : $NAME"
 
 require_repo
 cd "$OPT_ROOT"
+acquire_lock
 
 REL="apps/$NAME"
 [[ -e "$REL/.git" ]] || die "$REL n'est pas un sous-module initialisé (scripts/update.sh)" 3
@@ -75,6 +76,9 @@ if [[ -n "$(git -C "$REL" status --porcelain)" ]]; then
 fi
 
 before="$(git -C "$REL" rev-parse --short HEAD)"
+# Commit enregistré par opt (gitlink de HEAD). opt-deploy extrait déjà le commit à déployer
+# avant d'appeler ce script : le sous-module est alors à jour, mais pas ce pointeur.
+recorded="$(git rev-parse --verify --quiet "HEAD:$REL" || true)"
 run git -C "$REL" fetch --all --tags --quiet
 
 if [[ -n "$TO" ]]; then
@@ -90,14 +94,18 @@ fi
 resolved="$(git -C "$REL" rev-parse --short "$target" 2> /dev/null)" \
   || die "référence introuvable dans $REL : $target"
 
-if [[ "$resolved" == "$before" ]]; then
-  log "$NAME : déjà à $before"
-  exit 0
+full="$(git -C "$REL" rev-parse "$resolved")"
+if [[ "$full" == "$(git -C "$REL" rev-parse HEAD)" ]]; then
+  if [[ "$full" == "$recorded" ]]; then
+    log "$NAME : déjà à $before"
+    exit 0
+  fi
+  log "$NAME : sous-module déjà sur $resolved, pointeur de opt ${recorded:0:7} -> $resolved"
+else
+  log "$NAME : $before -> $resolved ($target)"
+  git -C "$REL" log --oneline "$before..$resolved" 2> /dev/null | sed 's/^/    /' || true
+  run git -C "$REL" checkout --quiet "$resolved"
 fi
-
-log "$NAME : $before -> $resolved ($target)"
-git -C "$REL" log --oneline "$before..$resolved" 2> /dev/null | sed 's/^/    /' || true
-run git -C "$REL" checkout --quiet "$resolved"
 
 run git add -- "$REL"
 if [[ "$DO_COMMIT" == "1" ]]; then
