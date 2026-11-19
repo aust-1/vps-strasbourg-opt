@@ -11,8 +11,10 @@ usage() {
 Usage : scripts/restore.sh [--only VOLUME]... [--with-env] [--yes] [--dry-run] <archive.tar.gz>
 
 Vérifie la somme de contrôle (<archive>.sha256), affiche le manifeste, puis remplace le contenu
-de chaque volume par celui de l'archive. Refuse si un conteneur utilise encore le volume
-(arrêter d'abord : cd apps/<nom> && docker compose stop).
+de chaque volume par celui de l'archive. Un volume absent est créé avec les labels de compose
+(projet et clé, déduits de son nom <unité>_<clé>) ; un volume existant sans ces labels est
+recréé avec. Refuse si un conteneur utilise encore le volume (arrêter d'abord :
+cd apps/<nom> && docker compose stop).
 
 Options :
   --only V      ne restaure que ce volume (répétable) ; sans option, tous ceux de l'archive
@@ -77,6 +79,21 @@ else
   die "$ARCHIVE.sha256 introuvable : refus de restaurer une archive non vérifiable" 2
 fi
 
+# volume_labels <volume> : options « --label » qu'aurait posées docker compose en créant ce volume.
+# Le nom suit la convention <projet>_<clé>, et le projet est le nom du dossier de l'unité (contrat
+# contrôlé par check.sh) : pas besoin de rendre le compose, donc pas besoin de son .env. Vide si
+# aucune unité connue (proxy, apps/*, services/*) ne correspond.
+volume_labels() {
+  local v="$1" unit best=""
+  for unit in proxy $(list_units | xargs -r -n 1 basename); do
+    if [[ "$v" == "${unit}_"?* && ${#unit} -gt ${#best} ]]; then best="$unit"; fi
+  done
+  [[ -n "$best" ]] || return 0
+  printf '%s\n' --label "com.docker.compose.project=$best" \
+    --label "com.docker.compose.volume=${v#"${best}_"}" \
+    --label "com.docker.compose.version=$(docker compose version --short 2> /dev/null || echo inconnue)"
+}
+
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 tar xzf "$ARCHIVE" -C "$WORK"
@@ -113,7 +130,24 @@ confirm "Confirmer la restauration ?"
 
 for v in ${TO_RESTORE[@]+"${TO_RESTORE[@]}"}; do
   log "restauration de $v"
-  run docker volume create "$v" > /dev/null
+  # Volume créé avec les labels de compose : sinon compose le réutilise sans jamais les ajouter,
+  # et backup.sh ne le retrouve plus par le label de son projet.
+  mapfile -t labels < <(volume_labels "$v")
+  if [[ ${#labels[@]} -eq 0 ]]; then
+    warn "$v : aucune unité connue ne le déclare, créé sans label compose"
+  fi
+  if docker volume inspect "$v" > /dev/null 2>&1; then
+    have="$(docker volume inspect -f '{{index .Labels "com.docker.compose.project"}}' "$v")"
+    if [[ ${#labels[@]} -gt 0 && "${labels[1]}" != "com.docker.compose.project=$have" ]]; then
+      # Son contenu va être remplacé : on peut le recréer, cette fois avec les labels.
+      if run docker volume rm "$v" > /dev/null; then
+        log "$v : existait sans les labels de compose, recréé avec"
+      else
+        warn "$v : impossible de le recréer avec les labels (conteneur arrêté qui l'utilise ? docker compose down dans son unité, puis relancer) ; contenu restauré quand même"
+      fi
+    fi
+  fi
+  run docker volume create ${labels[@]+"${labels[@]}"} "$v" > /dev/null
   run docker run --rm -v "$v":/data -v "$WORK/volumes":/in:ro "$HELPER_IMAGE" \
     sh -c "find /data -mindepth 1 -delete && tar xzf /in/$v.tar.gz -C /data"
 done
