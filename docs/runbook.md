@@ -241,6 +241,23 @@ git submodule status                  # repère l'app concernée
 scripts/app-bump.sh --to <réf> <nom>   # réaligne explicitement (voir docs/architecture.md)
 ```
 
+### Un volume sans label compose (avertissement de `backup.sh`)
+
+`backup.sh` signale « volume … sans label compose » pour un volume créé hors de `docker compose`
+(`docker volume create`, ou `restore.sh` avant qu'il ne pose les labels). Compose réutilise un tel
+volume sans jamais lui ajouter ses labels. Il est sauvegardé quand même, par son nom, mais le
+plus sûr est de le recréer avec ses labels, ce que fait `restore.sh` :
+
+```bash
+scripts/backup.sh --stop                     # archive fraîche qui le contient
+cd services/<unité> && docker compose down && cd /opt   # retire les conteneurs (pas les volumes)
+scripts/restore.sh --yes --only <volume> /var/backups/vps-opt/opt-<horodatage>.tar.gz
+scripts/app-deploy.sh <unité>
+```
+
+`backup.sh` signale aussi un volume déclaré par un compose mais absent : normal pour une unité
+jamais démarrée, anormal sinon.
+
 ### Espace disque bas
 
 ```bash

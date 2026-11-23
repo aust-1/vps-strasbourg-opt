@@ -91,17 +91,38 @@ project_name() {
   (cd "$1" && docker compose config | awk '/^name:/ {print $2; exit}')
 }
 
+# declared_volumes <dossier> : noms complets des volumes déclarés par le compose (champ « name: »
+# de chaque entrée du bloc « volumes: » de premier niveau, rendu par docker compose config).
+declared_volumes() {
+  (cd "$1" && docker compose config) | awk '/^volumes:/ {v = 1; next} /^[^ ]/ {v = 0} v && /^    name: / {print $2}'
+}
+
 declare -a UNIT_DIRS=("$PROXY_DIR")
 while IFS= read -r u; do UNIT_DIRS+=("$u"); done < <(list_units)
 
 declare -a VOLUMES=()
+declare -A SEEN=()
 for dir in "${UNIT_DIRS[@]}"; do
   proj="$(project_name "$dir")"
   [[ -n "$proj" ]] || die "nom de projet compose introuvable pour $dir"
   while IFS= read -r v; do
-    [[ -n "$v" ]] || continue
+    [[ -n "$v" && -z "${SEEN[$v]:-}" ]] || continue
+    SEEN[$v]=1
     VOLUMES+=("$v")
   done < <(docker volume ls -q --filter "label=com.docker.compose.project=$proj")
+  # Un volume créé hors de compose (docker volume create, ancien restore.sh) n'a pas le label du
+  # projet, et compose ne l'ajoute jamais après coup : sans ce rattrapage par le nom, il
+  # disparaîtrait des sauvegardes sans un mot.
+  while IFS= read -r v; do
+    [[ -n "$v" && -z "${SEEN[$v]:-}" ]] || continue
+    if docker volume inspect "$v" > /dev/null 2>&1; then
+      warn "volume $v sans label compose (projet $proj) : sauvegardé par son nom ; le recréer avec ses labels (docs/runbook.md, « Un volume sans label compose »)"
+      SEEN[$v]=1
+      VOLUMES+=("$v")
+    else
+      warn "volume $v déclaré par $(basename "$dir") mais absent (unité jamais démarrée ?) : rien à sauvegarder"
+    fi
+  done < <(declared_volumes "$dir")
 done
 
 if [[ "$DRY_RUN" == "1" ]]; then
