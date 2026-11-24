@@ -1,0 +1,15 @@
+# Mise en forme commune (éditeur, extension shell-format de VS Code, shfmt dans la CI).
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+
+[*.sh]
+indent_style = space
+indent_size = 2
+# Options de shfmt : -ci -sr -bn
+switch_case_indent = true
+space_redirects = true
+binary_next_line = true

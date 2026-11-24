@@ -115,6 +115,19 @@ bibliothèque commune (`common.sh`) et les règles de permissions (`perms.sh`).
 | `mail-test.sh`                 | Envoie un email de test par le relais SMTP et affiche son statut      |
 | `migrate-traefik-to-caddy.sh`  | Bascule depuis une ancienne installation Traefik (et `--rollback`)    |
 
+## Intégration continue
+
+`.github/workflows/ci.yml` tourne à chaque push et pull request, avec un jeton en lecture seule :
+
+- `shellcheck -x -S warning` sur `scripts/**/*.sh` et `tests/*.sh`, et `shfmt -d` (options de
+  mise en forme dans `.editorconfig`, lues aussi par l'éditeur) ;
+- `caddy validate` de `proxy/Caddyfile` avec les `Caddyfile` des services, assemblés comme le fait
+  `scripts/routes-sync.sh`, avec l'image Caddy de `proxy/docker-compose.yml` ;
+- `docker compose config -q` de chaque compose du proxy et des services, avec les variables de
+  son `.env.example`.
+
+Avant de pousser, en local : `shfmt -d scripts tests` et `scripts/check.sh`.
+
 ## Tests
 
 `tests/deploy-e2e.sh` teste de bout en bout le déploiement automatique (`deploy-install.sh`,
