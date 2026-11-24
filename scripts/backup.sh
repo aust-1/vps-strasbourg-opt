@@ -4,7 +4,8 @@
 # restent sous la responsabilité de l'app (ex. apps/bourse-tracker/infra/backup.sh).
 #
 # Sortie : <dest>/opt-<horodatage>.tar.gz + .sha256, mode 600 (contient des secrets).
-# Cron (root) : 30 2 * * *  /opt/scripts/backup.sh --stop >> /var/log/vps-opt-backup.log 2>&1
+# Cron (root) : 30 2 * * *  cd /opt && scripts/backup.sh --stop >> /var/log/vps-opt-backup.log 2>&1
+# Supervision : sonde push d'Uptime Kuma (BACKUP_PING_URL, voir docs/deploy.md section 5).
 set -euo pipefail
 
 # shellcheck source=lib/common.sh
@@ -14,7 +15,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib/perms.sh"
 
 usage() {
   cat << 'EOF'
-Usage : scripts/backup.sh [--dest DOSSIER] [--keep-days N] [--stop] [--dry-run] [-h]
+Usage : scripts/backup.sh [--dest DOSSIER] [--keep-days N] [--stop] [--ping-url URL] [--dry-run] [-h]
 
 Contenu de l'archive : un tar.gz par volume Docker des projets compose (proxy, services, apps),
 les fichiers .env, et manifest.txt (date, commit, sous-modules, volumes).
@@ -24,6 +25,9 @@ Options :
   --keep-days N  supprime les sauvegardes opt-*.tar.gz de plus de N jours (défaut 14 ; 0 = jamais)
   --stop         arrête les apps/services (pas le proxy) pendant la copie des volumes, puis les
                  redémarre : sauvegarde cohérente des bases SQLite (uptime-kuma)
+  --ping-url U   sonde push Uptime Kuma prévenue en fin de sauvegarde : « up » si elle a réussi,
+                 « down » avec le code de sortie sinon (défaut : BACKUP_PING_URL dans
+                 /etc/vps-opt/monitoring.env, fichier hors dépôt ; vide = aucune sonde)
   --dry-run      affiche le plan sans rien écrire
   -h, --help     cette aide
 
@@ -34,6 +38,7 @@ EOF
 DEST="${BACKUP_DIR:-$BACKUP_ROOT_DEFAULT}"
 KEEP_DAYS=14
 STOP=0
+PING_URL=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --dest)
@@ -50,6 +55,11 @@ while [[ $# -gt 0 ]]; do
       STOP=1
       shift
       ;;
+    --ping-url)
+      [[ $# -ge 2 ]] || usage_error "--ping-url attend une URL"
+      PING_URL="$2"
+      shift 2
+      ;;
     --dry-run)
       DRY_RUN=1
       shift
@@ -61,6 +71,13 @@ while [[ $# -gt 0 ]]; do
     *) usage_error "option inconnue : $1" ;;
   esac
 done
+[[ -n "$PING_URL" ]] || PING_URL="$(monitoring_url BACKUP_PING_URL)"
+# Prérequis manquant (Docker arrêté…) avant le trap de nettoyage : la sonde est prévenue aussi.
+early_exit() {
+  local rc=$?
+  [[ "$rc" -eq 0 ]] || ping_monitor "$PING_URL" down "sauvegarde impossible (code $rc) : voir /var/log/vps-opt-backup.log"
+}
+trap early_exit EXIT
 
 require_repo
 require_docker
@@ -81,8 +98,13 @@ restart_stopped() {
   STOPPED=()
 }
 cleanup() {
+  local rc=$?
   restart_stopped
   rm -rf "$WORK"
+  # Toute sortie en erreur, prévue (die) ou non (set -e), prévient la sonde.
+  if [[ "$rc" -ne 0 ]]; then
+    ping_monitor "$PING_URL" down "sauvegarde en échec (code $rc) : voir /var/log/vps-opt-backup.log sur $(hostname)"
+  fi
 }
 trap cleanup EXIT
 
@@ -180,3 +202,4 @@ if [[ "$KEEP_DAYS" -gt 0 ]]; then
 fi
 
 log "sauvegarde OK : $ARCHIVE ($(du -h "$ARCHIVE" | cut -f1))"
+ping_monitor "$PING_URL" up "sauvegarde OK : $(basename "$ARCHIVE") ($(du -h "$ARCHIVE" | cut -f1))"

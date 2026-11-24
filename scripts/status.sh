@@ -8,18 +8,32 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 
 usage() {
   cat << 'EOF'
-Usage : scripts/status.sh [-h]
+Usage : scripts/status.sh [--ping-url URL] [-h]
 
 Affiche le dépôt (commit, branche, arbre propre ?), le réseau proxy, l'état de Caddy, puis une
 ligne par app/service : commit du sous-module, conteneurs sains/total, .env présent, route
 publiée et à jour.
 
+Options :
+  --ping-url URL  sonde push Uptime Kuma prévenue à chaque exécution : « up » si tout va bien,
+                  « down » avec le nombre d'anomalies sinon (défaut : STATUS_PING_URL dans
+                  /etc/vps-opt/monitoring.env, fichier hors dépôt ; vide = aucune sonde)
+  -h, --help      cette aide
+
+Cron (root, toutes les 15 min) : voir docs/deploy.md, section 5.
+
 Codes de sortie : 0 tout va bien ; 1 au moins une anomalie ; 3 prérequis (Docker).
 EOF
 }
 
+PING_URL=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --ping-url)
+      [[ $# -ge 2 ]] || usage_error "--ping-url attend une URL"
+      PING_URL="$2"
+      shift 2
+      ;;
     -h | --help)
       usage
       exit 0
@@ -27,6 +41,14 @@ while [[ $# -gt 0 ]]; do
     *) usage_error "option inconnue : $1" ;;
   esac
 done
+[[ -n "$PING_URL" ]] || PING_URL="$(monitoring_url STATUS_PING_URL)"
+# Sortie imprévue (Docker arrêté : code 3…) : la sonde est prévenue aussi.
+PINGED=0
+on_exit() {
+  local rc=$?
+  [[ "$PINGED" == 1 || "$rc" -eq 0 ]] || ping_monitor "$PING_URL" down "status.sh impossible (code $rc)"
+}
+trap on_exit EXIT
 
 require_repo
 require_docker
@@ -128,9 +150,12 @@ for f in "$PROXY_SITES_DIR"/*.caddy; do
 done
 
 echo
+PINGED=1
 if [[ "$PROBLEMS" -eq 0 ]]; then
   log "tout est en ordre"
+  ping_monitor "$PING_URL" up "tout est en ordre"
 else
   err "$PROBLEMS anomalie(s)"
+  ping_monitor "$PING_URL" down "$PROBLEMS anomalie(s) : lancer scripts/status.sh sur $(hostname)"
   exit 1
 fi

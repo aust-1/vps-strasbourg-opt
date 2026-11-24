@@ -150,3 +150,47 @@ usage_error() {
 
 # Horodatage stable pour les noms de fichiers.
 stamp() { date +%Y%m%d-%H%M%S; }
+
+# --- Supervision (sondes « push » d'Uptime Kuma) ----------------------------
+
+# Fichier hors dépôt (root, 600) : jamais versionné, il contient les jetons des sondes.
+MONITORING_ENV="${MONITORING_ENV:-/etc/vps-opt/monitoring.env}"
+
+# monitoring_url <VARIABLE> : valeur de VARIABLE dans $MONITORING_ENV (lignes « NOM=valeur »),
+# vide si le fichier ou la variable manque. Le fichier est lu, jamais sourcé.
+monitoring_url() {
+  local key value
+  [[ -r "$MONITORING_ENV" ]] || return 0
+  while IFS='=' read -r key value; do
+    if [[ "$key" == "$1" ]]; then
+      value="${value%\"}"
+      value="${value#\"}"
+      printf '%s\n' "$value"
+      return 0
+    fi
+  done < "$MONITORING_ENV"
+}
+
+# ping_monitor <url> <up|down> <message> : signale un résultat à une sonde push d'Uptime Kuma,
+# depuis l'hôte vers son URL publique. Sans URL : rien. Un échec de l'envoi n'est qu'un
+# avertissement : il ne change jamais le résultat du script (la sonde, sans nouvelle, alertera).
+ping_monitor() {
+  local url="$1" status="$2" msg="$3"
+  [[ -n "$url" ]] || return 0
+  if [[ "$DRY_RUN" == "1" ]]; then
+    log "sonde : $status ($msg) non envoyée"
+    return 0
+  fi
+  if ! command -v curl > /dev/null 2>&1; then
+    warn "curl introuvable : sonde non prévenue ($status)"
+    return 0
+  fi
+  # L'URL copiée depuis Uptime Kuma porte déjà « ?status=up&msg=OK&ping= » : on la remplace.
+  if curl -fsS -o /dev/null --max-time 15 --retry 3 --retry-delay 5 -G \
+    --data-urlencode "status=$status" --data-urlencode "msg=$msg" --data-urlencode "ping=" \
+    "${url%%\?*}"; then
+    log "sonde prévenue : $status"
+  else
+    warn "sonde injoignable ($status non transmis) : ${url%%/api/push/*}"
+  fi
+}
