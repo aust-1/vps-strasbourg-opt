@@ -19,9 +19,17 @@ Usage : scripts/backup.sh [--dest DOSSIER] [--keep-days N] [--stop] [--dry-run] 
 Contenu de l'archive : un tar.gz par volume Docker des projets compose (proxy, services, apps),
 les fichiers .env, et manifest.txt (date, commit, sous-modules, volumes).
 
+Copie hors du VPS : si /etc/vps-opt/offsite.env existe (aucune destination par défaut), l'archive
+et son .sha256 sont envoyés, chiffrés, dans le dépôt restic qu'il décrit, puis les copies
+distantes de plus de --remote-keep-days jours sont purgées. Un échec d'envoi est une erreur
+(code 1), l'archive locale restant intacte. Mise en route : docs/runbook.md.
+
 Options :
   --dest D       dossier de destination (défaut : $BACKUP_DIR ou /var/backups/vps-opt)
   --keep-days N  supprime les sauvegardes opt-*.tar.gz de plus de N jours (défaut 14 ; 0 = jamais)
+  --remote-keep-days N
+                 copies distantes conservées N jours (défaut : REMOTE_KEEP_DAYS de offsite.env,
+                 sinon 30 ; 0 = jamais purgées)
   --stop         arrête les apps/services (pas le proxy) pendant la copie des volumes, puis les
                  redémarre : sauvegarde cohérente des bases SQLite (uptime-kuma)
   --dry-run      affiche le plan sans rien écrire
@@ -33,6 +41,7 @@ EOF
 
 DEST="${BACKUP_DIR:-$BACKUP_ROOT_DEFAULT}"
 KEEP_DAYS=14
+REMOTE_KEEP_DAYS=""
 STOP=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -44,6 +53,11 @@ while [[ $# -gt 0 ]]; do
     --keep-days)
       [[ $# -ge 2 && "$2" =~ ^[0-9]+$ ]] || usage_error "--keep-days attend un nombre"
       KEEP_DAYS="$2"
+      shift 2
+      ;;
+    --remote-keep-days)
+      [[ $# -ge 2 && "$2" =~ ^[0-9]+$ ]] || usage_error "--remote-keep-days attend un nombre"
+      REMOTE_KEEP_DAYS="$2"
       shift 2
       ;;
     --stop)
@@ -129,6 +143,7 @@ if [[ "$DRY_RUN" == "1" ]]; then
   log "archive prévue : $ARCHIVE"
   log "volumes : ${VOLUMES[*]:-(aucun)}"
   log ".env : $(perms_env_files | wc -l) fichier(s)"
+  if offsite_configured; then log "copie distante : restic ($OFFSITE_ENV)"; else log "copie distante : non configurée"; fi
   [[ "$STOP" == "0" ]] || log "apps/services arrêtés pendant la copie, puis redémarrés"
   exit 0
 fi
@@ -174,6 +189,26 @@ tar czf "$ARCHIVE.tmp" -C "$WORK" .
 tar tzf "$ARCHIVE.tmp" > /dev/null || die "archive illisible, sauvegarde abandonnée"
 mv "$ARCHIVE.tmp" "$ARCHIVE"
 (cd "$DEST" && sha256sum "$(basename "$ARCHIVE")" > "$(basename "$ARCHIVE").sha256")
+
+# Copie hors du VPS : une perte du disque ou du serveur n'emporte pas aussi les sauvegardes.
+# restic chiffre côté client (l'archive contient tous les .env) avant tout envoi.
+if offsite_configured; then
+  if [[ -z "$REMOTE_KEEP_DAYS" ]]; then REMOTE_KEEP_DAYS="$(offsite_value REMOTE_KEEP_DAYS)"; fi
+  [[ "${REMOTE_KEEP_DAYS:=30}" =~ ^[0-9]+$ ]] || die "REMOTE_KEEP_DAYS invalide dans $OFFSITE_ENV : $REMOTE_KEEP_DAYS" 2
+  log "copie distante (restic, chiffrée) : $(basename "$ARCHIVE")"
+  offsite_restic backup --quiet --tag "$OFFSITE_TAG" "$ARCHIVE" "$ARCHIVE.sha256" \
+    || die "copie distante en échec ; l'archive locale est intacte : $ARCHIVE"
+  if [[ "$REMOTE_KEEP_DAYS" -gt 0 ]]; then
+    # --group-by tags : chaque archive a un nom (donc un chemin) différent ; sans regroupement,
+    # restic verrait autant de groupes que d'instantanés et n'en oublierait aucun.
+    offsite_restic forget --quiet --tag "$OFFSITE_TAG" --group-by tags \
+      --keep-within "${REMOTE_KEEP_DAYS}d" --prune \
+      || die "purge des copies distantes de plus de $REMOTE_KEEP_DAYS jours en échec"
+  fi
+  log "copie distante OK (conservée $REMOTE_KEEP_DAYS jour(s) ; 0 = sans limite)"
+else
+  log "copie distante non configurée ($OFFSITE_ENV absent) : l'archive ne quitte pas le VPS"
+fi
 
 if [[ "$KEEP_DAYS" -gt 0 ]]; then
   find "$DEST" -maxdepth 1 -name 'opt-*.tar.gz*' -mtime "+$KEEP_DAYS" -delete

@@ -68,6 +68,82 @@ scripts/restore.sh backups/opt-2026...tar.gz --only uptime-kuma_data
 Ne concerne pas les données métier d'une app dont la base est externe (ex. Supabase pour
 `bourse-tracker` : voir `apps/bourse-tracker/infra/backup.sh`, indépendant de celui-ci).
 
+## Copier les sauvegardes hors du VPS
+
+Une archive qui reste sur le VPS disparaît avec lui (disque perdu, serveur supprimé chez
+l'hébergeur, machine compromise). Si `/etc/vps-opt/offsite.env` existe, `scripts/backup.sh` envoie
+chaque archive et son `.sha256` dans un dépôt [restic](https://restic.net) :
+
+- chiffrement côté client avant l'envoi : l'archive contient tous les `.env` ;
+- conservation distante distincte de la locale : `REMOTE_KEEP_DAYS` (défaut 30 jours) ou
+  `--remote-keep-days N`, `0` pour ne jamais purger ;
+- un envoi en échec fait sortir `backup.sh` en erreur (code 1, dans
+  `/var/log/vps-opt-backup.log`), l'archive locale restant intacte ;
+- `scripts/check.sh` échoue si la dernière copie distante a plus de 48 h.
+
+Sans ce fichier, rien ne quitte le VPS (et `check.sh` le signale). Il n'y a **pas de destination
+par défaut** : n'importe quel stockage géré par restic convient (bucket S3 compatible, Backblaze
+B2, SFTP vers une autre machine…), de préférence chez un autre fournisseur que le VPS.
+
+Mise en route, une fois, en root :
+
+```bash
+apt install -y restic
+install -d -m 700 /etc/vps-opt
+openssl rand -base64 32 > /etc/vps-opt/restic-password && chmod 600 /etc/vps-opt/restic-password
+install -m 600 /dev/null /etc/vps-opt/offsite.env
+nano /etc/vps-opt/offsite.env
+```
+
+```ini
+# Copie des sauvegardes hors du VPS (scripts/backup.sh). root:root 600, jamais dans le dépôt.
+# Dépôt restic, au choix :
+#   S3 compatible : s3:https://<point d'accès>/<bucket>/vps-opt  (+ AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
+#   Backblaze B2  : b2:<bucket>:vps-opt                           (+ B2_ACCOUNT_ID, B2_ACCOUNT_KEY)
+#   SFTP          : sftp:<utilisateur>@<hôte>:/chemin/vps-opt     (clé SSH de root)
+RESTIC_REPOSITORY=
+RESTIC_PASSWORD_FILE=/etc/vps-opt/restic-password
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
+# Conservation des copies distantes, en jours (0 = sans limite).
+REMOTE_KEEP_DAYS=30
+```
+
+```bash
+bash -c 'set -a; . /etc/vps-opt/offsite.env; restic init'   # crée le dépôt chiffré
+scripts/backup.sh                                            # première copie
+scripts/restore.sh --list-remote                             # instantanés distants
+scripts/check.sh                                             # « dernière copie distante il y a 0 h »
+```
+
+**Garder hors du VPS** le contenu de `/etc/vps-opt/offsite.env` et surtout le mot de passe restic
+(gestionnaire de mots de passe) : sans lui, les copies sont illisibles, et c'est justement quand
+le VPS est perdu qu'on en a besoin.
+
+### Reprise sur un VPS neuf
+
+1. Docker et le dépôt : `docs/deploy.md`, section 1 (cloner dans `/opt`), sans lancer
+   `bootstrap.sh`.
+2. `apt install -y restic`, puis recréer `/etc/vps-opt/offsite.env` et
+   `/etc/vps-opt/restic-password` (mêmes droits que ci-dessus) depuis le gestionnaire de mots de
+   passe.
+3. Restaurer volumes et `.env` depuis la copie distante :
+
+   ```bash
+   scripts/network-create.sh
+   scripts/restore.sh --list-remote
+   scripts/restore.sh --yes --with-env --from-remote latest   # ou l'identifiant d'un instantané
+   ```
+
+   L'archive est téléchargée dans `/var/backups/vps-opt/distant-<horodatage>/` (à supprimer une
+   fois tout vérifié). Le manifeste affiché donne le commit de chaque sous-module au moment de la
+   sauvegarde : `scripts/app-bump.sh --to <commit> <app>` pour revenir exactement à cet état.
+4. `scripts/fix-perms.sh && scripts/check.sh`, puis `scripts/app-deploy.sh --all` et
+   `scripts/status.sh`.
+5. Ce que l'archive ne contient pas, à refaire : le cron (`docs/deploy.md`, section 5), le
+   déploiement automatique avec de nouvelles clés par app (`docs/ci-deploy.md`), et le DNS s'il
+   faut le faire pointer sur la nouvelle adresse.
+
 ## Contrôler la conformité de l'ensemble
 
 ```bash
