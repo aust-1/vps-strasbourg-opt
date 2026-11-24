@@ -60,10 +60,20 @@ configuration tant que la nouvelle n'est pas validée.
 ## Sauvegarder / restaurer
 
 ```bash
-scripts/backup.sh                          # volumes Docker + .env -> backups/opt-<horodatage>.tar.gz
+scripts/backup.sh                          # volumes Docker + .env -> /var/backups/vps-opt/opt-<horodatage>.tar.gz
 scripts/backup.sh --stop --keep-days 30    # cohérence des bases SQLite (arrête, copie, redémarre)
-scripts/restore.sh backups/opt-2026...tar.gz --only uptime-kuma_data
+ls -lt /var/backups/vps-opt/               # archives disponibles, la plus récente en premier
+scripts/restore.sh /var/backups/vps-opt/opt-<horodatage>.tar.gz --only uptime-kuma_data
 ```
+
+Les archives nocturnes (et leur `.sha256`) vont dans `/var/backups/vps-opt/`, hors du dépôt
+(`--dest` ou la variable `BACKUP_DIR` pour un autre dossier). Rétention par défaut : 14 jours
+(`--keep-days N`, `0` pour ne jamais purger). Ce dossier contient tous les `.env` : mode 700,
+contrôlé par `scripts/check.sh` et rétabli par `scripts/fix-perms.sh`.
+
+À ne pas confondre avec le dossier `backups/` du dépôt (ignoré par git, mode 700 lui aussi), qui
+ne reçoit que les sauvegardes d'avant migration (`scripts/migrate-traefik-to-caddy.sh`,
+`backups/pre-migration-<horodatage>/`) et les `.env` des apps retirées (`scripts/app-remove.sh`, `backups/removed/`).
 
 Ne concerne pas les données métier d'une app dont la base est externe (ex. Supabase pour
 `bourse-tracker` : voir `apps/bourse-tracker/infra/backup.sh`, indépendant de celui-ci).
@@ -263,5 +273,6 @@ jamais démarrée, anormal sinon.
 ```bash
 docker system df
 docker image prune -f
-find backups -name '*.tar.gz*' -mtime +30   # sauvegardes anciennes (backup.sh les purge déjà par défaut)
+find /var/backups/vps-opt -name 'opt-*.tar.gz*' -mtime +30   # vieilles sauvegardes (backup.sh purge déjà au-delà de 14 jours)
+du -sh /var/backups/vps-opt backups 2> /dev/null               # sauvegardes nocturnes / de migration et apps retirées
 ```

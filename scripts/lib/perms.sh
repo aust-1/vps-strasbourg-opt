@@ -8,7 +8,8 @@
 #   scripts/, scripts/lib 755
 #   .env, .env.* (hors .env.example) de chaque app/service et du proxy : 600 (secrets)
 #   proxy/sites           755, fichiers *.caddy 644
-#   backups/ (dépôt) et $BACKUP_DIR s'ils existent : 700 (contiennent des secrets)
+#   backups/ (dépôt) et le dossier des sauvegardes nocturnes (${BACKUP_DIR:-/var/backups/vps-opt})
+#   s'ils existent : 700 (contiennent des secrets)
 # Jamais touchés : containerd/, .git/, et le contenu des sous-modules (hors .env).
 
 PERMS_VIOLATIONS=0
@@ -66,6 +67,7 @@ perms_process() {
   done
 
   _perms_enforce "$action" 700 "$OPT_ROOT/backups"
-  [[ -n "${BACKUP_DIR:-}" ]] && _perms_enforce "$action" 700 "$BACKUP_DIR"
+  # Même défaut que scripts/backup.sh : sans BACKUP_DIR, c'est le dossier réel des archives.
+  _perms_enforce "$action" 700 "${BACKUP_DIR:-$BACKUP_ROOT_DEFAULT}"
   return 0
 }
