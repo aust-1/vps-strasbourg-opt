@@ -21,7 +21,9 @@ export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 # Remplacé à l'installation par le chemin réel du dépôt opt.
 readonly OPT_ROOT="@OPT_ROOT@"
 readonly LOG=/var/log/opt-deploy.log
-readonly LOCK=/run/lock/opt-deploy.lock
+# Remplacé à l'installation par OPT_LOCK (scripts/lib/common.sh) : le même verrou que update.sh,
+# backup.sh, restore.sh, app-deploy.sh, app-bump.sh et routes-sync.sh.
+readonly LOCK="@OPT_LOCK@"
 readonly BRANCH=main
 
 die() {
@@ -29,7 +31,7 @@ die() {
   exit "${2:-1}"
 }
 
-[[ "$OPT_ROOT" != "@"* ]] || die "modèle non installé : utiliser scripts/deploy-install.sh" 3
+[[ "$OPT_ROOT" != "@"* && "$LOCK" != "@"* ]] || die "modèle non installé : utiliser scripts/deploy-install.sh" 3
 [[ "$EUID" -eq 0 ]] || die "à lancer en root : sudo opt-deploy <app>" 3
 [[ $# -eq 1 ]] || die "usage : opt-deploy <app>" 2
 
@@ -38,9 +40,12 @@ app="$1"
 dir="$OPT_ROOT/apps/$app"
 [[ -e "$dir/.git" && -f "$dir/docker-compose.yml" ]] || die "app inconnue : $app" 2
 
-# Un seul déploiement à la fois sur le serveur (routes et proxy sont partagés).
-exec 9> "$LOCK"
-flock -w 900 9 || die "un autre déploiement est toujours en cours" 1
+# Une seule opération à la fois sur le serveur (routes, proxy et dépôt opt sont partagés) : un
+# déploiement attend la fin d'une sauvegarde, d'une mise à jour ou d'un autre déploiement.
+# Fichier existant ouvert sans O_CREAT (fs.protected_regular dans /run/lock, même pour root).
+# app-deploy.sh et app-bump.sh héritent du descripteur 9 : leur acquire_lock le reconnaît.
+if [[ -e "$LOCK" ]]; then exec 9< "$LOCK"; else exec 9> "$LOCK"; fi
+flock -w 900 9 || die "une autre opération (déploiement, mise à jour, sauvegarde) tient toujours le verrou" 1
 
 exec > >(tee -a "$LOG") 2>&1
 echo "== $(date -Is) $app : début (demandé par ${SUDO_USER:-root})"

@@ -65,6 +65,9 @@ done
 require_repo
 require_docker
 require_cmd tar sha256sum
+# Pas de déploiement ni de mise à jour pendant la copie (--stop : une app relancée en cours de
+# copie donnerait une archive incohérente).
+acquire_lock
 umask 077
 
 readonly HELPER_IMAGE="alpine:3"

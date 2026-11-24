@@ -90,6 +90,32 @@ rc=0; /usr/local/sbin/opt-deploy demo >/dev/null 2>&1 || rc=$?
 [[ "$rc" == 4 ]] && ok "modifications locales : refus (code 4)" || ko "modifications locales écrasées (code $rc)"
 git -C /opt/apps/demo checkout -q -- docker-compose.yml
 
+# Un déploiement attend la fin d'une sauvegarde en cours (même verrou que backup.sh). Docker est
+# remplacé le temps de ce test par un stub dont « docker volume ls » dure 4 s.
+cat > /usr/local/bin/docker << 'EOF'
+#!/bin/sh
+case "$*" in
+  "compose config") echo "name: stub" ;;
+  "volume ls"*)
+    echo "BACKUP début" >> /tmp/trace
+    sleep 4
+    echo "BACKUP fin" >> /tmp/trace
+    ;;
+esac
+exit 0
+EOF
+chmod 755 /usr/local/bin/docker
+: > /tmp/trace
+/opt/scripts/backup.sh --dest /tmp/backups > /tmp/backup.log 2>&1 &
+backup=$!
+sleep 1
+/usr/local/sbin/opt-deploy demo > /dev/null 2>&1 || true
+wait "$backup" && ok "sauvegarde terminée" || ko "sauvegarde en échec : $(tail -n 3 /tmp/backup.log)"
+# Le stub de app-deploy doit écrire APRÈS la dernière ligne de la sauvegarde.
+order="$(awk '/BACKUP fin/ {f = NR} /STUB app-deploy demo/ && !d {d = NR} END {print (f && d > f) ? "ok" : "ko"}' /tmp/trace)"
+[[ "$order" == ok ]] && ok "opt-deploy attend la fin de la sauvegarde" || ko "déploiement pendant la sauvegarde : $(tr '\n' ',' < /tmp/trace)"
+rm -f /usr/local/bin/docker
+
 # Un push sur l'app ne peut pas modifier ce qui tourne en root.
 (cd /tmp/work-demo && mkdir -p infra && printf '#!/bin/sh\necho PWNED\n' > infra/deploy.sh && git add . && git commit -qm pwn && git push -q origin HEAD:main)
 "${SSH[@]}" >/dev/null 2>&1 || true

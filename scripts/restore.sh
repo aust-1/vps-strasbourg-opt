@@ -68,6 +68,8 @@ done
 
 require_docker
 require_cmd tar sha256sum
+# Aucun déploiement ne doit relancer un conteneur sur un volume en cours de restauration.
+acquire_lock
 umask 077
 
 ARCHIVE="$(cd "$(dirname "$ARCHIVE")" && pwd -P)/$(basename "$ARCHIVE")"

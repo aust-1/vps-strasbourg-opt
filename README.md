@@ -100,7 +100,7 @@ bibliothèque commune (`common.sh`) et les règles de permissions (`perms.sh`).
 | Script                         | Rôle                                                                  |
 | ------------------------------ | --------------------------------------------------------------------- |
 | `bootstrap.sh`                 | Première mise en place complète (à lancer une fois)                   |
-| `update.sh`                    | `git pull` + sous-modules + permissions + routes                      |
+| `update.sh`                    | `git fetch` + avance rapide (réconcilie les commits de déploiement) + sous-modules + permissions + routes |
 | `network-create.sh`            | Crée le réseau Docker partagé `proxy`                                 |
 | `fix-perms.sh`                 | Applique les permissions attendues (règles : `scripts/lib/perms.sh`)  |
 | `routes-sync.sh`               | Assemble, valide puis recharge les routes Caddy                       |
@@ -127,6 +127,11 @@ docker run --rm -v "$PWD":/src:ro ubuntu:25.04 bash /src/tests/deploy-e2e.sh
 ```
 
 Sous Git Bash, préfixer par `MSYS_NO_PATHCONV=1`. Dernière ligne attendue : « TOUT EST VERT ».
+
+`tests/update-reconcile.sh` teste `scripts/update.sh` face aux commits locaux des déploiements
+automatiques (réconciliation, refus en code 4) et le verrou partagé, sur des dépôts git jetables
+dans un dossier temporaire : ni Docker, ni root, ni réseau. Depuis la racine du dépôt :
+`bash tests/update-reconcile.sh`, même dernière ligne attendue.
 
 ## Rigueur
 

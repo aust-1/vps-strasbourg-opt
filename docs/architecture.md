@@ -103,7 +103,8 @@ commande : `sudo opt-deploy <app>`. `/usr/local/sbin/opt-deploy` est une copie, 
 dépôt git, de `scripts/opt-deploy.sh` ; il avance le sous-module de l'app sur `origin/main`,
 lance `scripts/app-deploy.sh <app>` (build ou pull, healthchecks, routes) puis
 `scripts/app-bump.sh`, pour que le dépôt opt enregistre le commit réellement déployé (commit
-local, jamais de push automatique). Aucune app n'embarque de script de déploiement : un push sur
+local, jamais de push automatique ; `scripts/update.sh` le réconcilie avec `origin/main`, voir
+`docs/runbook.md`). Aucune app n'embarque de script de déploiement : un push sur
 une app ne peut pas modifier ce qui s'exécute en root.
 
 ## Limitation connue : permissions sous Windows/WSL

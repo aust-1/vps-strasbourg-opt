@@ -161,6 +161,7 @@ deploy_one() {
 
 require_docker
 require_network
+acquire_lock
 
 declare -a TARGETS=()
 if [[ "$ALL" == "1" ]]; then
