@@ -54,7 +54,7 @@ services:
 
   postgres:
     <<: *hardening
-    image: postgres:17 # majeure figée : un changement de majeure exige un dump/restore
+    image: postgres:17.12 # version figée ; changer de majeure exige un dump/restore (Dependabot : mineures seulement)
     environment:
       POSTGRES_USER: rybbit
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?manquant dans .env}
@@ -74,7 +74,7 @@ services:
 
   redis:
     <<: *hardening
-    image: redis:8-alpine
+    image: redis:8.10.3-alpine # version figée ; ne pas suivre « latest » (montées : Dependabot)
     # Sessions, identité, compteurs anti-robots : noeviction + AOF (comme l'upstream)
     command:
       - redis-server

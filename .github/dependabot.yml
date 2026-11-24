@@ -1,0 +1,27 @@
+# Montées de version proposées par pull request : rien ne change sur le serveur sans un commit
+# relu. Après fusion : scripts/update.sh puis scripts/app-deploy.sh <unité> (docs/runbook.md).
+version: 2
+updates:
+  # Images des composes versionnés ici (les apps de apps/ ont leur propre dépôt).
+  - package-ecosystem: docker-compose
+    directories:
+      - /proxy
+      - /services/*
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(deps)"
+    ignore:
+      # Changer de majeure de Postgres exige un dump/restore : à faire à la main.
+      - dependency-name: postgres
+        update-types: ["version-update:semver-major"]
+      # ClickHouse suit la version imposée par Rybbit (compose de l'upstream), pas la dernière.
+      - dependency-name: clickhouse/clickhouse-server
+
+  # Actions des workflows (épinglées par SHA).
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "ci"
